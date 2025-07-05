@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: nethawk-backend
+    env: python
+    plan: free
+    buildCommand: |
+      apt-get update && apt-get install -y nmap
+      pip install -r requirements.txt
+    startCommand: gunicorn -k eventlet -w 1 app:app
+    envVars:
+      - key: FRONTEND_URL
+        value: https://nethawk.vercel.app

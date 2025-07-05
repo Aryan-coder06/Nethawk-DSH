@@ -19,4 +19,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 5000
 
 # Start Flask app with Gunicorn + eventlet
-CMD ["gunicorn", "-k", "eventlet", "-w", "1", "app:app"]
+CMD ["gunicorn", "-k", "eventlet", "-w", "1", "wsgi:app"]
+

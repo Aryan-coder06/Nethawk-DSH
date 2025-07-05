@@ -7,7 +7,6 @@ import {
   XCircle,
   AlertTriangle,
   Clock,
-  Settings,
   RefreshCw,
   Eye,
   Trash2,

@@ -1,5 +1,5 @@
 // src/components/dashboard.tsx
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Header } from '@/components/header';
 import { Sidebar } from '@/components/sidebar';

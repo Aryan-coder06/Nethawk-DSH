@@ -1,7 +1,7 @@
 // src/components/header.tsx
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, Settings, Shield, User, Moon, Sun, Monitor } from 'lucide-react';
+import { Bell, Shield, User, Moon, Sun, Monitor } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,

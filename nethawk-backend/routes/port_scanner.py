@@ -60,11 +60,9 @@ def run_port_scan(ip_address, ports_string, stop_event):
     yield {"status": "info", "message": f"Starting scan on {ip_address} for ports: {nmap_ports_arg}"}
     
     try:
-        # We will use subprocess.run directly for privileged scans with sudo.
-        # NmapProcess is bypassed here because of the 'cmd' argument limitation.
         nmap_options_list = ["-Pn", "-sT", "-T4", "-p", nmap_ports_arg, "--host-timeout", "5m", "--max-retries", "3", "-oX", "-"]  # -sT = TCP connect scan
 
-        command = ['nmap'] + nmap_options_list + [ip_address]  # No sudo, no hard path
+        command = ['nmap'] + nmap_options_list + [ip_address] 
 
 
         full_command_str = " ".join(command) # For logging purposes

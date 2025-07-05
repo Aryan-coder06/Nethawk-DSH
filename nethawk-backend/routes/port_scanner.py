@@ -62,11 +62,10 @@ def run_port_scan(ip_address, ports_string, stop_event):
     try:
         # We will use subprocess.run directly for privileged scans with sudo.
         # NmapProcess is bypassed here because of the 'cmd' argument limitation.
-        
-        nmap_options_list = ["-Pn", "-sS", "-T4", "-p", nmap_ports_arg, "--host-timeout", "5m", "--max-retries", "3", "-oX", "-"] # -oX - to get XML to stdout
-        
-        # Prepend 'sudo' to the command list
-        command = ['sudo', '/usr/bin/nmap'] + nmap_options_list + [ip_address]
+        nmap_options_list = ["-Pn", "-sT", "-T4", "-p", nmap_ports_arg, "--host-timeout", "5m", "--max-retries", "3", "-oX", "-"]  # -sT = TCP connect scan
+
+        command = ['nmap'] + nmap_options_list + [ip_address]  # No sudo, no hard path
+
 
         full_command_str = " ".join(command) # For logging purposes
         yield {"status": "info", "message": f"Nmap command: {full_command_str}"}
@@ -159,7 +158,7 @@ def run_port_scan(ip_address, ports_string, stop_event):
             yield {"status": "complete", "message": "Scan completed."}
             
         except FileNotFoundError:
-            logging.error(f"Error: Nmap command or 'sudo' not found. Check path and installation.")
+            logging.error(f"Error: Nmap command not found. Ensure Nmap is installed on the server.")
             yield {"status": "error", "message": "Nmap command not found. Check server installation."}
         except Exception as e:
             logging.error(f"An unexpected error occurred during Nmap scan execution: {e}")

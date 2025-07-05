@@ -1,12 +1,9 @@
 services:
   - type: web
     name: nethawk-backend
-    env: python
+    env: docker
     plan: free
-    buildCommand: |
-      apt-get update && apt-get install -y nmap
-      pip install -r requirements.txt
-    startCommand: gunicorn -k eventlet -w 1 app:app
+    dockerfilePath: ./nethawk-backend/Dockerfile
     envVars:
       - key: FRONTEND_URL
-        value: https://nethawk.vercel.app
+        value: http://localhost:5173  # You can later change this to your Vercel URL

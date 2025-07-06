@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-// --- All your 'lucide-react' and UI component imports remain the same ---
 import { 
   Activity, Download, Upload, Wifi, TrendingUp, TrendingDown,
   BarChart3, RefreshCw, AlertTriangle, Settings
@@ -17,10 +16,8 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 
-// 1. Import the socket.io client
 import { io } from 'socket.io-client';
 
-// 2. Define the data interfaces (they remain the same)
 interface BandwidthData {
   timestamp: string;
   download: number;
@@ -34,7 +31,6 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const socket = io(BACKEND_URL); 
 
 export function BandwidthMonitor() {
-  // 4. Initialize state with empty or minimal data, not the generator function.
   const [realtimeData, setRealtimeData] = useState<BandwidthData[]>([]);
   const [isMonitoring, setIsMonitoring] = useState(true);
   const [timeRange, setTimeRange] = useState('30s');
@@ -42,46 +38,35 @@ export function BandwidthMonitor() {
   const [currentUpload, setCurrentUpload] = useState(0);
   const [currentPing, setCurrentPing] = useState(0);
 
-  // 5. This is the core change: Replace setInterval with a WebSocket listener.
   useEffect(() => {
-    // Start or stop the connection based on the monitoring state
     if (isMonitoring) {
       socket.connect();
     } else {
       socket.disconnect();
     }
 
-    // Define the function to handle incoming data
     const handleBandwidthUpdate = (newDataPoint: BandwidthData) => {
       setCurrentDownload(newDataPoint.download);
       setCurrentUpload(newDataPoint.upload);
       setCurrentPing(newDataPoint.ping);
-
-      // Add the new data point to our chart history
       setRealtimeData(prev => {
         const updatedData = [...prev, newDataPoint];
-        // Keep the chart history to a manageable size (e.g., last 30 points)
         return updatedData.length > 30 ? updatedData.slice(1) : updatedData;
       });
     };
     
-    // Listen for the 'bandwidth_update' event from the server
     socket.on('bandwidth_update', handleBandwidthUpdate);
 
-    // This is a crucial cleanup step. It runs when the component unmounts or `isMonitoring` changes.
-    // It prevents memory leaks and duplicate event listeners.
     return () => {
       socket.off('bandwidth_update', handleBandwidthUpdate);
       socket.disconnect();
     };
-  }, [isMonitoring]); // Re-run this effect when the user toggles the Start/Stop button
+  }, [isMonitoring]);
 
   const totalBandwidth = currentDownload + currentUpload;
   const maxBandwidth = 200; // Mbps
   const utilizationPercentage = (totalBandwidth / maxBandwidth) * 100;
 
-  // ... THE REST OF YOUR JSX (METRIC CARDS, CHARTS, ETC.) REMAINS EXACTLY THE SAME ...
-  // --- It will now be powered by real data flowing into your state variables. ---
   const MetricCard = ({ title, value, unit, icon: Icon, trend, color }: any) => (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -112,7 +97,7 @@ export function BandwidthMonitor() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      
       <motion.div
         className="flex items-center justify-between"
         initial={{ opacity: 0, y: -20 }}
@@ -285,7 +270,7 @@ export function BandwidthMonitor() {
                   </AreaChart>
                 </ResponsiveContainer>
               </TabsContent>
-              {/* ... Other TabsContent remain the same ... */}
+              
             </Tabs>
           </CardContent>
         </Card>

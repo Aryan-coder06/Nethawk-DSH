@@ -11,7 +11,6 @@ import { FtpManager } from '@/components/ftp-manager';
 import { MailChecker } from '@/components/mail-checker';
 import { Settings } from '@/components/settings';
 
-// Define the type for ActiveModule
 type ActiveModule = 'overview' | 'network-scanner' | 'bandwidth' | 'port-scanner' | 'ftp' | 'mail' | 'settings';
 
 export function Dashboard() {
@@ -41,10 +40,9 @@ export function Dashboard() {
 
   return (
     <div className="h-screen flex flex-col bg-background">
-      {/* Pass setActiveModule to Header */}
+      
       <Header setActiveModule={setActiveModule} />
       
-      {/* Added pt-16 to push content below the fixed header (header is h-16) */}
       <div className="flex flex-1 overflow-hidden pt-16">
         <Sidebar
           activeModule={activeModule}
@@ -52,9 +50,7 @@ export function Dashboard() {
           collapsed={sidebarCollapsed}
           setCollapsed={setSidebarCollapsed}
         />
-        <motion.main
-          // Added pt-0 here to ensure p-6 provides horizontal padding, but not top, as pt-16 is on parent.
-          className={`flex-1 overflow-auto p-6 transition-all duration-300 ${
+        <motion.main className={`flex-1 overflow-auto p-6 transition-all duration-300 ${
             sidebarCollapsed ? 'ml-16' : 'ml-64'
           } pt-0`}
           initial={{ opacity: 0, x: 20 }}

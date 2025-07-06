@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'; // Added useEffect
+import { useState, useEffect } from 'react'; 
 import { motion } from 'framer-motion';
-import io, { Socket } from 'socket.io-client'; // Added io and Socket
+import io, { Socket } from 'socket.io-client'; 
 import {
   FolderOpen,
   Upload,
@@ -37,22 +37,18 @@ interface FtpConnection {
   port: number;
   username: string;
   protocol: 'FTP' | 'FTPS' | 'SFTP';
-  // The 'status' field here is from your initial mock,
-  // we'll primarily use the 'isConnected' state for active connection status.
-  status: 'connected' | 'disconnected' | 'connecting'; // Keep this for initial display from backend
+  status: 'connected' | 'disconnected' | 'connecting';
   lastConnected?: string;
 }
 
 interface FileItem {
   name: string;
-  type: 'file' | 'directory' | 'symlink'; // Added symlink for robustness
+  type: 'file' | 'directory' | 'symlink'; 
   size: number;
   modified: string;
   permissions: string;
   owner: string;
 }
-
-// Removed mockConnections and mockFiles - we'll fetch them from the backend now.
 
 const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '-';
@@ -64,7 +60,6 @@ const formatFileSize = (bytes: number): string => {
 
 const getFileIcon = (file: FileItem) => {
   if (file.type === 'directory') return Folder;
-  // if (file.type === 'symlink') return Link; // Assuming you have a Link icon from lucide-react
 
   const ext = file.name.split('.').pop()?.toLowerCase();
   switch (ext) {
@@ -104,7 +99,6 @@ const getProtocolColor = (protocol: string) => {
 
 const BACKEND_URL: string = import.meta.env.VITE_BACKEND_URL;
 
-// Use it to connect the socket
 const socket: Socket = io(BACKEND_URL, { transports: ['websocket'] }); 
 
 
@@ -114,28 +108,23 @@ export function FtpManager() {
   // const socket: Socket = io('http://localhost:5000', { transports: ['websocket'] });
 
   // State variables for FTP Manager
-  const [connections, setConnections] = useState<FtpConnection[]>([]); // Will be fetched from backend
-  const [files, setFiles] = useState<FileItem[]>([]); // Will be populated by FTP listing
+  const [connections, setConnections] = useState<FtpConnection[]>([]); 
+  const [files, setFiles] = useState<FileItem[]>([]);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
-  const [currentPath, setCurrentPath] = useState('/'); // Start at root
-  const [passwordInput, setPasswordInput] = useState<string>(''); // For password input
-  const [isConnected, setIsConnected] = useState<boolean>(false); // Tracks current session's connection status
-  const [currentHost, setCurrentHost] = useState<string>(''); // Host of the currently connected FTP server
+  const [currentPath, setCurrentPath] = useState('/'); 
+  const [passwordInput, setPasswordInput] = useState<string>(''); 
+  const [isConnected, setIsConnected] = useState<boolean>(false); 
+  const [currentHost, setCurrentHost] = useState<string>(''); 
 
-  // State for simulated upload (keep your existing logic)
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
 
-  // State for new connection dialog
   const [newConnectionDialog, setNewConnectionDialog] = useState(false);
 
-  // Derive active connection from selected ID
   const activeConnection = connections.find(c => c.id === selectedConnectionId);
 
-  // --- Socket.IO Event Handlers (Frontend Side) ---
   useEffect(() => {
-    // 1. Fetch FTP connection profiles from your backend's HTTP endpoint
-    fetch('/api/ftp/connections') // This hits your @ftp_bp.route("/connections")
+    fetch('/api/ftp/connections') 
       .then(response => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -145,13 +134,11 @@ export function FtpManager() {
       .then((data: FtpConnection[]) => {
         setConnections(data);
         if (data.length > 0) {
-          // Automatically select the first connection if available
           setSelectedConnectionId(data[0].id);
         }
       })
       .catch(error => console.error("Failed to fetch FTP connections:", error));
 
-    // 2. Socket.IO event listeners
     socket.on('connect', () => {
       console.log('Socket.IO connected to backend!');
     });
@@ -170,16 +157,13 @@ export function FtpManager() {
         setIsConnected(data.is_connected);
         if (data.is_connected && data.current_host) {
           setCurrentHost(data.current_host);
-          // If successfully connected, immediately request directory listing
           socket.emit('ftp_list_dir', { path: '/' });
         } else if (!data.is_connected) {
-          setCurrentHost(''); // Clear host on disconnect
-          setFiles([]); // Clear file list on disconnect
-          setCurrentPath('/'); // Reset path on disconnect
+          setCurrentHost(''); 
+          setFiles([]); 
+          setCurrentPath('/'); 
         }
       }
-      // You might want to display a toast notification here based on status/message
-      // E.g., import { toast } from 'react-hot-toast'; toast.success(data.message);
     });
 
     socket.on('ftp_dir_listing', (data: { path: string; files: FileItem[] }) => {
@@ -194,10 +178,8 @@ export function FtpManager() {
         setIsUploading(data.status === 'transferring');
         setUploadProgress(data.progress || 0);
       }
-      // You'd handle download progress similarly if needed
     });
 
-    // Clean up socket connection on component unmount
     return () => {
       socket.off('connect');
       socket.off('disconnect');
@@ -206,10 +188,8 @@ export function FtpManager() {
       socket.off('ftp_transfer_progress');
       socket.disconnect();
     };
-  }, [socket]); // Dependency array: re-run if socket instance changes (unlikely)
+  }, [socket]); 
 
-
-  // --- Frontend Action Handlers ---
 
   const handleConnect = () => {
     if (activeConnection && passwordInput) {
@@ -217,8 +197,6 @@ export function FtpManager() {
       socket.emit('ftp_connect', { id: activeConnection.id, password: passwordInput });
     } else {
       console.warn("Cannot connect: No connection selected or password missing.");
-      // Optionally, show a toast/alert to the user
-      // toast.error("Please select a connection and enter the password.");
     }
   };
 
@@ -246,16 +224,14 @@ export function FtpManager() {
         if (parts.length > 0) {
           newPath = '/' + parts.slice(0, -1).join('/');
         } else {
-          newPath = '/'; // Already at root
+          newPath = '/'; 
         }
       } else if (fileName === '.') {
-        newPath = currentPath; // Stay in current directory
+        newPath = currentPath; 
       } else {
-        // Go into a sub-directory
         newPath = `${currentPath === '/' ? '' : currentPath}/${fileName}`;
       }
 
-      // Clean up path: ensure it always starts with / and doesn't end with / unless it's just /
       newPath = newPath.replace(/\/\//g, '/').replace(/\/$/, '');
       if (newPath === '') newPath = '/';
 
@@ -264,21 +240,16 @@ export function FtpManager() {
         socket.emit('ftp_list_dir', { path: newPath });
       } else {
         console.warn("Not connected to navigate directory.");
-        // toast.error("Not connected to an FTP server.");
       }
     } else {
       console.log(`Clicked file: ${fileName}`);
-      // TODO: Handle file click (e.g., trigger download dialog)
-      // toast.info(`File clicked: ${fileName}`);
     }
   };
 
-  // Your existing handleUpload (simulated progress)
   const handleUpload = () => {
     setIsUploading(true);
     setUploadProgress(0);
 
-    // Simulate upload progress
     const interval = setInterval(() => {
       setUploadProgress(prev => {
         if (prev >= 100) {
@@ -304,7 +275,6 @@ export function FtpManager() {
         <p className="text-muted-foreground">Manage FTP connections and transfer files securely</p>
       </motion.div>
 
-      {/* Connection Management */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -386,14 +356,13 @@ export function FtpManager() {
             </div>
           </CardHeader>
           <CardContent>
-            {/* Display fetched connections */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4"> {/* Added mb-4 for spacing */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4"> 
               {connections.map((connection) => (
                 <motion.div
                   key={connection.id}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: 0.05 }} // Adjusted delay
+                  transition={{ duration: 0.3, delay: 0.05 }} 
                   className={`p-4 rounded-lg border cursor-pointer transition-colors ${
                     selectedConnectionId === connection.id
                       ? 'border-primary bg-primary/5'
@@ -410,7 +379,6 @@ export function FtpManager() {
                   <div className="text-sm text-muted-foreground space-y-1">
                     <div>{connection.host}:{connection.port}</div>
                     <div className="flex items-center justify-between">
-                      {/* Reflect current connection status dynamically */}
                       <span className={getStatusColor(isConnected && currentHost === connection.host ? 'connected' : 'disconnected')}>
                         {isConnected && currentHost === connection.host ? 'Connected' : 'Disconnected'}
                       </span>
@@ -425,7 +393,6 @@ export function FtpManager() {
               ))}
             </div>
 
-            {/* Current Connection Details & Actions (NEW BLOCK) */}
             {selectedConnectionId && activeConnection && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -438,7 +405,7 @@ export function FtpManager() {
                   Host: {activeConnection.host}:{activeConnection.port} | Protocol: {activeConnection.protocol}
                 </p>
 
-                {!isConnected || currentHost !== activeConnection.host ? ( // Show connect if not connected or connected to different host
+                {!isConnected || currentHost !== activeConnection.host ? ( 
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="ftp-password">Password</Label>
@@ -475,7 +442,6 @@ export function FtpManager() {
         </Card>
       </motion.div>
 
-      {/* File Browser (Show only if connected to selected host) */}
       {isConnected && activeConnection && currentHost === activeConnection.host && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}

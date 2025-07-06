@@ -25,24 +25,19 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-// FIXED: Changed `=>` to `from` in the import statement
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { useToast } from '@/hooks/use-toast'; // Corrected import path
+import { useToast } from '@/hooks/use-toast'; 
 import { Textarea } from '@/components/ui/textarea';
 import io from 'socket.io-client';
 
-// --- Socket.IO Client Setup ---
-// Replace with your Flask backend URL
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
-// const SOCKET_IO_URL = 'http://127.0.0.1:5000';
 const socket = io(BACKEND_URL, {
   transports: ['websocket', 'polling']
 });
-
-// --- Interfaces adjusted to backend response ---
 
 interface MailAccount {
   id: string;
@@ -51,23 +46,23 @@ interface MailAccount {
   imap_port: number;
   smtp_host: string;
   smtp_port: number;
-  username: string; // Corresponds to email
-  status: 'connected' | 'disconnected' | 'error' | 'connecting'; // Added 'connecting' state
-  lastCheck: string; // Timestamp from backend
-  messageCount?: number; // Total messages in INBOX
-  unreadCount?: number; // Unread messages in INBOX
+  username: string; 
+  status: 'connected' | 'disconnected' | 'error' | 'connecting'; 
+  lastCheck: string; 
+  messageCount?: number; 
+  unreadCount?: number; 
   error?: string;
-  is_active_session?: boolean; // To indicate if this account is currently connected via Socket.IO
-  current_mailbox?: string; // Track currently selected mailbox for this account
+  is_active_session?: boolean; 
+  current_mailbox?: string; 
 }
 
 interface MailMessage {
-  uid: string; // Unique ID from IMAP
+  uid: string; 
   from: string;
   subject: string;
   date: string;
-  message_id: string; // Added from backend
-  // size and read status not directly available from current backend list, will derive or fetch on demand
+  message_id: string; 
+
 }
 
 interface EmailContent {
@@ -79,7 +74,7 @@ interface EmailContent {
   bcc: string;
   date: string;
   message_id: string;
-  body: string; // Primary display content (HTML if available, else plain)
+  body: string; 
   plain_text_body: string;
   html_body: string;
   attachments: {
@@ -93,7 +88,7 @@ const getStatusIcon = (status: string) => {
   switch (status) {
     case 'connected': return <CheckCircle className="h-4 w-4 text-green-500" />;
     case 'error': return <XCircle className="h-4 w-4 text-red-500" />;
-    case 'connecting': // New state for actively trying to connect
+    case 'connecting': 
     case 'checking': return <Clock className="h-4 w-4 text-yellow-500 animate-spin" />;
     default: return <AlertTriangle className="h-4 w-4 text-gray-500" />;
   }
@@ -109,12 +104,11 @@ const getStatusColor = (status: string) => {
   }
 };
 
-// Protocol color for IMAP/SMTP (POP3 is not directly supported by current backend)
 const getProtocolColor = (protocol: string) => {
   switch (protocol) {
     case 'IMAP': return 'bg-blue-500';
     case 'SMTP': return 'bg-orange-500';
-    case 'POP3': return 'bg-green-500'; // Keep for now if UI expects it, though backend is IMAP/SMTP
+    case 'POP3': return 'bg-green-500'; 
     default: return 'bg-gray-500';
   }
 };
@@ -132,10 +126,9 @@ export function MailChecker() {
   const [accounts, setAccounts] = useState<MailAccount[]>([]);
   const [inboxEmails, setInboxEmails] = useState<MailMessage[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<MailAccount | null>(null);
-  const [selectedEmail, setSelectedEmail] = useState<EmailContent | null>(null); // For viewing email content
+  const [selectedEmail, setSelectedEmail] = useState<EmailContent | null>(null); 
   const [activeTab, setActiveTab] = useState('accounts');
 
-  // Add Account form states
   const [newAccountName, setNewAccountName] = useState('');
   const [newAccountEmail, setNewAccountEmail] = useState('');
   const [newAccountImapHost, setNewAccountImapHost] = useState('');
@@ -144,29 +137,23 @@ export function MailChecker() {
   const [newAccountSmtpPort, setNewAccountSmtpPort] = useState('587');
   const [newAccountUsername, setNewAccountUsername] = useState('');
   const [newAccountPassword, setNewAccountPassword] = useState('');
-  const [newAccountSsl, setNewAccountSsl] = useState(true); // SSL is assumed true for IMAP_SSL/SMTP+TLS
+  const [newAccountSsl, setNewAccountSsl] = useState(true); 
   const [newAccountDialog, setNewAccountDialog] = useState(false);
   const [isAddingAccount, setIsAddingAccount] = useState(false);
 
-  // Send Test Email form states
   const [sendTestDialog, setSendTestDialog] = useState(false);
   const [testRecipientEmail, setTestRecipientEmail] = useState('');
   const [testSubject, setTestSubject] = useState('');
   const [testBody, setTestBody] = useState('');
   const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
 
-  // Pagination for inbox
   const [currentPage, setCurrentPage] = useState(1);
   const [emailsPerPage, setEmailsPerPage] = useState(10);
   const [totalInboxEmails, setTotalInboxEmails] = useState(0);
 
+  const [autoCheck, setAutoCheck] = useState(false); 
+  const [checkInterval, setCheckInterval] = useState('5'); 
 
-  // Settings states (auto-check will be implemented differently)
-  const [autoCheck, setAutoCheck] = useState(false); // No direct backend support for auto-check all
-  const [checkInterval, setCheckInterval] = useState('5'); // Remains a frontend setting for future use or manual trigger
-
-
-  // --- Fetch Mail Accounts (HTTP GET) ---
   const fetchMailAccounts = useCallback(async () => {
     try {
       const response = await fetch(`${BACKEND_URL}/api/mail/connections`);
@@ -176,12 +163,12 @@ export function MailChecker() {
       const data = await response.json();
       setAccounts(data.map((acc: any) => ({
         ...acc,
-        email: acc.username, // Map backend 'username' to frontend 'email'
-        server: acc.imap_host, // Use imap_host for general 'server' display
-        port: acc.imap_port, // Use imap_port for general 'port' display
-        protocol: 'IMAP', // Our backend uses IMAP, so hardcode for UI display
-        ssl: true, // Our backend uses SSL for IMAP_SSL
-        status: 'disconnected', // Default to disconnected until connected via Socket.IO
+        email: acc.username, 
+        server: acc.imap_host, 
+        port: acc.imap_port, 
+        protocol: 'IMAP', 
+        ssl: true, 
+        status: 'disconnected', 
         lastCheck: 'N/A',
         is_active_session: false,
         current_mailbox: 'INBOX'
@@ -196,9 +183,8 @@ export function MailChecker() {
     }
   }, [toast,BACKEND_URL]);
 
-  // --- Socket.IO Event Listeners ---
   useEffect(() => {
-    // Initial fetch of accounts when component mounts
+
     fetchMailAccounts();
 
     socket.on('connect', () => {
@@ -216,7 +202,7 @@ export function MailChecker() {
         description: "Lost connection to Flask backend.",
         variant: "destructive",
       });
-      // Reset all accounts to disconnected status
+
       setAccounts(prevAccounts => prevAccounts.map(account => ({
         ...account,
         status: 'disconnected',
@@ -248,13 +234,12 @@ export function MailChecker() {
             is_active_session: data.status === 'connected'
           };
         } else if (data.status === 'connected' && account.is_active_session) {
-          // If a new account connects, disconnect the previously active one for this session
+
           return { ...account, status: 'disconnected', is_active_session: false, error: undefined };
         }
         return account;
       }));
 
-      // If a new account connected, set it as the selected one
       if (data.status === 'connected' && data.current_mail_config_id) {
         setAccounts(prevAccounts => {
           const connectedAccount = prevAccounts.find(acc => acc.id === data.current_mail_config_id);
@@ -263,19 +248,19 @@ export function MailChecker() {
           }
           return prevAccounts;
         });
-        setActiveTab('messages'); // Automatically switch to messages tab
+        setActiveTab('messages'); 
       } else if (data.status === 'disconnected') {
          setSelectedAccount(null);
          setInboxEmails([]);
          setSelectedEmail(null);
-         setActiveTab('accounts'); // Go back to accounts tab
+         setActiveTab('accounts'); 
       }
     });
 
     socket.on('mail_inbox_summary', (data: { unreadCount: number; totalMessages: number }) => {
       console.log('Inbox Summary:', data);
       setAccounts(prevAccounts => prevAccounts.map(account => {
-        if (account.is_active_session) { // Update the active account
+        if (account.is_active_session) { 
           return {
             ...account,
             messageCount: data.totalMessages,
@@ -288,14 +273,14 @@ export function MailChecker() {
 
     socket.on('mail_inbox_listing', (data: { mailbox: string; emails: any[]; totalCount: number }) => {
       console.log('Inbox Listing:', data);
-      // Map backend fields to frontend MailMessage interface
+
       const mappedEmails: MailMessage[] = data.emails.map((email: any) => ({
         uid: email.uid,
         from: email.from,
         subject: email.subject,
         date: email.date,
         message_id: email.message_id,
-        // Backend doesn't explicitly send 'read' or 'size' in listing, so omit or derive if needed
+
       }));
       setInboxEmails(mappedEmails);
       setTotalInboxEmails(data.totalCount);
@@ -307,13 +292,12 @@ export function MailChecker() {
 
     socket.on('mail_email_content', (data: EmailContent) => {
         console.log('Email Content:', data);
-        setSelectedEmail(data); // Set the full email content for display
+        setSelectedEmail(data); 
         toast({
             title: "Email Loaded",
             description: `Content for '${data.subject}' loaded.`,
         });
     });
-
 
     return () => {
       socket.off('connect');
@@ -322,15 +306,12 @@ export function MailChecker() {
       socket.off('mail_inbox_summary');
       socket.off('mail_inbox_listing');
       socket.off('mail_email_content');
-      // socket.disconnect(); // Don't disconnect here, manage globally
+
     };
-  }, [fetchMailAccounts, toast]); // Dependencies for useEffect
-
-
-  // --- Event Emitters / Handlers ---
+  }, [fetchMailAccounts, toast]); 
 
   const handleConnect = (account: MailAccount, password?: string) => {
-    // Prevent connecting if already connecting/connected
+
     if (account.status === 'connecting' || account.status === 'connected' && account.is_active_session) {
         toast({
             title: "Connection in Progress",
@@ -341,10 +322,10 @@ export function MailChecker() {
     }
 
     setAccounts(prev => prev.map(a =>
-        a.id === account.id ? { ...a, status: 'connecting', error: undefined } : { ...a, is_active_session: false } // Mark current as connecting, others as inactive
+        a.id === account.id ? { ...a, status: 'connecting', error: undefined } : { ...a, is_active_session: false } 
     ));
-    setSelectedAccount(null); // Clear selected to prevent issues during connection change
-    setInboxEmails([]); // Clear inbox when connecting new account
+    setSelectedAccount(null); 
+    setInboxEmails([]); 
     setSelectedEmail(null);
 
     socket.emit('mail_connect', { id: account.id, password: password });
@@ -352,7 +333,7 @@ export function MailChecker() {
 
   const handleDisconnect = () => {
     socket.emit('mail_disconnect');
-    // UI will be updated by mail_status event from backend
+
   };
 
   const handleFetchInbox = useCallback(() => {
@@ -397,7 +378,7 @@ export function MailChecker() {
   const handleAddAccount = async () => {
     setIsAddingAccount(true);
     try {
-      // Define the request body
+
       const requestBody = {
         name: newAccountName,
         imap_host: newAccountImapHost,
@@ -406,14 +387,12 @@ export function MailChecker() {
         smtp_port: parseInt(newAccountSmtpPort),
         username: newAccountUsername,
         password: newAccountPassword,
-        // SSL is assumed true for our backend IMAP_SSL/SMTP+TLS
+
       };
 
-      // Log the data being sent (for debugging)
       console.log("Sending request to backend with body:", requestBody);
 
-      // Make the fetch request with the absolute URL
-      const response = await fetch(`${BACKEND_URL}/api/mail/add_connection`, { // FIX: Changed to absolute URL
+      const response = await fetch(`${BACKEND_URL}/api/mail/add_connection`, { 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -421,43 +400,36 @@ export function MailChecker() {
         body: JSON.stringify(requestBody),
       });
 
-      // Log the raw response for inspection (for debugging)
       console.log("Received raw response:", response);
 
-      // Check if the response is OK (status 2xx)
       if (!response.ok) {
         let errorData;
         try {
-          errorData = await response.json(); // Attempt to parse error JSON
+          errorData = await response.json(); 
         } catch (jsonError) {
-          // If response is not JSON, use default error message
+
           console.error("Failed to parse error response as JSON:", jsonError);
           throw new Error(`HTTP error! Status: ${response.status}. Response: ${await response.text()}`);
         }
-        // Throw an error with the message from backend or a generic one
+
         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
 
-      // If response is OK, parse the success JSON
       const data = await response.json();
-      console.log("Successfully added account data from backend:", data); // Log success data
+      console.log("Successfully added account data from backend:", data); 
 
       toast({
         title: "Account Added",
-        description: data.message || "Mail account added successfully.", // Use data.message if available, else generic
-        variant: "success", // Added variant: "success" (assuming it's defined in your toast.tsx)
+        description: data.message || "Mail account added successfully.", 
+        variant: "success", 
       });
-      
-      // Close the "Add New Account" dialog/modal
-      // Assuming setNewAccountDialog(false) closes the dialog
+
       setNewAccountDialog(false); 
 
-      // Re-fetch accounts to update the list in the UI
       fetchMailAccounts();
 
-      // Clear form fields after successful addition
       setNewAccountName('');
-      // setNewAccountEmail(''); // This state variable was not used in the body, removed for clarity.
+
       setNewAccountImapHost('');
       setNewAccountImapPort('993');
       setNewAccountSmtpHost('');
@@ -469,7 +441,7 @@ export function MailChecker() {
       console.error("Failed to add account:", error);
       toast({
         title: "Error adding account",
-        description: error.message || "An unexpected error occurred.", // Provide a fallback message
+        description: error.message || "An unexpected error occurred.", 
         variant: "destructive",
       });
     } finally {
@@ -494,12 +466,12 @@ export function MailChecker() {
         title: "Account Deleted",
         description: data.message,
       });
-      fetchMailAccounts(); // Re-fetch accounts to update the list
-      if (selectedAccount?.id === id) { // If the deleted account was selected, clear selection
+      fetchMailAccounts(); 
+      if (selectedAccount?.id === id) { 
         setSelectedAccount(null);
         setInboxEmails([]);
         setSelectedEmail(null);
-        handleDisconnect(); // Ensure backend session is also disconnected
+        handleDisconnect(); 
       }
     } catch (error: any) {
       console.error("Failed to delete account:", error);
@@ -523,40 +495,31 @@ export function MailChecker() {
       return;
     }
 
-    // For simplicity, we are passing the password directly in the socket event.
-    // In a production app, the password might be stored server-side temporarily
-    // after initial login, or a more secure token-based system used.
     socket.emit('mail_send_test', {
       connection_id: selectedAccount.id,
       recipient_email: testRecipientEmail,
       subject: testSubject,
       body: testBody,
-      password: newAccountPassword // This assumes the password from add form is available, or use a separate input for sending
+      password: newAccountPassword 
     });
 
-    // The toast for success/failure will come from the mail_status event listener
-    setIsSendingTestEmail(false); // Reset immediately, actual status via socket event
+    setIsSendingTestEmail(false); 
     setSendTestDialog(false);
     setTestRecipientEmail('');
     setTestSubject('');
     setTestBody('');
   };
 
-
-  // --- Derived State for UI ---
   const totalMessages = accounts.reduce((sum, acc) => sum + (acc.messageCount || 0), 0);
   const totalUnreadMessages = accounts.reduce((sum, acc) => sum + (acc.unreadCount || 0), 0);
   const connectedAccountsCount = accounts.filter(acc => acc.status === 'connected' || acc.status === 'connecting').length;
 
-
-  // Pagination calculations for emails
   const totalPages = Math.ceil(totalInboxEmails / emailsPerPage);
   const currentEmailsDisplayed = inboxEmails.length;
 
-
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -566,7 +529,7 @@ export function MailChecker() {
         <p className="text-muted-foreground">Monitor and manage email server connections</p>
       </motion.div>
 
-      {/* Stats Overview */}
+      {}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -651,7 +614,7 @@ export function MailChecker() {
         </motion.div>
       </div>
 
-      {/* Mail Accounts */}
+      {}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -668,7 +631,7 @@ export function MailChecker() {
                 <CardDescription>Manage and monitor email server connections</CardDescription>
               </div>
               <div className="flex items-center space-x-2">
-                {/* No "Check All" equivalent for mail checker as connection is per-session */}
+                {}
                 {selectedAccount?.is_active_session ? (
                    <Button variant="outline" onClick={handleDisconnect}>
                        <XCircle className="h-4 w-4 mr-2" />
@@ -739,7 +702,6 @@ export function MailChecker() {
                     </Dialog>
                 )}
 
-
                 <Dialog open={newAccountDialog} onOpenChange={setNewAccountDialog}>
                   <DialogTrigger asChild>
                     <Button>
@@ -788,7 +750,7 @@ export function MailChecker() {
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Switch id="ssl" checked={newAccountSsl} onCheckedChange={setNewAccountSsl} disabled /> {/* SSL is implicitly true */}
+                        <Switch id="ssl" checked={newAccountSsl} onCheckedChange={setNewAccountSsl} disabled /> {}
                         <Label htmlFor="ssl">Use SSL/TLS (Always On)</Label>
                       </div>
                       <div className="flex justify-end space-x-2">
@@ -822,7 +784,7 @@ export function MailChecker() {
                 <TabsTrigger value="settings">Settings</TabsTrigger>
               </TabsList>
 
-              {/* Accounts Tab Content */}
+              {}
               <TabsContent value="accounts">
                 <div className="rounded-lg border">
                   <Table>
@@ -830,7 +792,7 @@ export function MailChecker() {
                       <TableRow>
                         <TableHead>Account</TableHead>
                         <TableHead>IMAP Server</TableHead>
-                        <TableHead>SMTP Server</TableHead> {/* New column for SMTP */}
+                        <TableHead>SMTP Server</TableHead> {}
                         <TableHead>Status</TableHead>
                         <TableHead>Messages</TableHead>
                         <TableHead>Last Check</TableHead>
@@ -857,15 +819,14 @@ export function MailChecker() {
                             onClick={() => {
                                 setSelectedAccount(account);
                                 if (!account.is_active_session) {
-                                    // Optionally prompt for password or automatically connect if no password required
-                                    // For now, let's keep it simple: if not connected, prepare for connect.
+
                                 }
                             }}
                           >
                             <TableCell>
                               <div>
                                 <div className="font-medium">{account.name}</div>
-                                <div className="text-sm text-muted-foreground">{account.username}</div> {/* Use username for email */}
+                                <div className="text-sm text-muted-foreground">{account.username}</div> {}
                               </div>
                             </TableCell>
                             <TableCell>
@@ -873,7 +834,7 @@ export function MailChecker() {
                                 {account.imap_host}:{account.imap_port}
                               </div>
                             </TableCell>
-                            <TableCell> {/* New Cell for SMTP */}
+                            <TableCell> {}
                               <div className="font-mono text-sm">
                                 {account.smtp_host}:{account.smtp_port}
                               </div>
@@ -907,7 +868,7 @@ export function MailChecker() {
                                             variant="ghost"
                                             size="icon"
                                             className="h-8 w-8"
-                                            onClick={(e) => { e.stopPropagation(); handleFetchInbox(); }} // Fetch on click
+                                            onClick={(e) => { e.stopPropagation(); handleFetchInbox(); }} 
                                             title="Refresh Inbox"
                                         >
                                             <RefreshCw className="h-3 w-3" />
@@ -916,7 +877,7 @@ export function MailChecker() {
                                             variant="ghost"
                                             size="icon"
                                             className="h-8 w-8 text-red-500"
-                                            onClick={(e) => { e.stopPropagation(); handleDisconnect(); }} // Disconnect active session
+                                            onClick={(e) => { e.stopPropagation(); handleDisconnect(); }} 
                                             title="Disconnect"
                                         >
                                             <XCircle className="h-3 w-3" />
@@ -928,12 +889,12 @@ export function MailChecker() {
                                             variant="ghost"
                                             size="icon"
                                             className="h-8 w-8"
-                                            onClick={(e) => { e.stopPropagation(); handleConnect(account, newAccountPassword); }} // Pass password for demo simplicity, in real app prompt or secure
+                                            onClick={(e) => { e.stopPropagation(); handleConnect(account, newAccountPassword); }} 
                                             title="Connect to Mail Server"
                                         >
                                             <Mail className="h-3 w-3" />
                                         </Button>
-                                        {/* Edit functionality would involve a dialog prepopulated with account data */}
+                                        {}
                                         <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
                                             <Edit className="h-3 w-3" />
                                         </Button>
@@ -958,7 +919,7 @@ export function MailChecker() {
                 </div>
               </TabsContent>
 
-              {/* Messages Tab Content */}
+              {}
               <TabsContent value="messages">
                 {selectedAccount && selectedAccount.is_active_session ? (
                     <AnimatePresence mode="wait">
@@ -1004,7 +965,7 @@ export function MailChecker() {
                                                             <span className="text-xs text-muted-foreground ml-1">({formatFileSize(attachment.size)})</span>
                                                         </Badge>
                                                     ))}
-                                                    {/* Note: Actual download would require a new backend route that serves file content */}
+                                                    {}
                                                 </div>
                                             </div>
                                         )}
@@ -1058,7 +1019,7 @@ export function MailChecker() {
                                             ) : (
                                                 inboxEmails.map((message, index) => (
                                                     <motion.tr
-                                                        key={message.uid} // Use UID as key
+                                                        key={message.uid} 
                                                         initial={{ opacity: 0, y: 10 }}
                                                         animate={{ opacity: 1, y: 0 }}
                                                         transition={{ duration: 0.2, delay: index * 0.03 }}
@@ -1087,7 +1048,7 @@ export function MailChecker() {
                                         </TableBody>
                                     </Table>
                                 </div>
-                                {/* Pagination Controls */}
+                                {}
                                 {totalInboxEmails > emailsPerPage && (
                                     <div className="flex justify-end items-center space-x-2">
                                         <Button
@@ -1121,7 +1082,7 @@ export function MailChecker() {
                 )}
               </TabsContent>
 
-              {/* Settings Tab Content */}
+              {}
               <TabsContent value="settings">
                 <div className="space-y-6">
                   <div className="space-y-4">
@@ -1137,12 +1098,12 @@ export function MailChecker() {
                         id="auto-check"
                         checked={autoCheck}
                         onCheckedChange={setAutoCheck}
-                        disabled // Disabled as backend doesn't support generic 'auto check all'
+                        disabled 
                       />
                     </div>
                     <div className="space-y-2">
                       <Label>Check Interval</Label>
-                      <Select value={checkInterval} onValueChange={setCheckInterval} disabled> {/* Disabled */}
+                      <Select value={checkInterval} onValueChange={setCheckInterval} disabled> {}
                         <SelectTrigger className="w-48">
                           <SelectValue />
                         </SelectTrigger>

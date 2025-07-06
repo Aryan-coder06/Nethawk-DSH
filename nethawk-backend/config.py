@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    # e.g. store FTP connection templates or default IMAP host here
     FTP_CONNECTIONS = [
         {
             "id": "1",
@@ -14,6 +13,5 @@ class Config:
             "username": os.getenv("FTP1_USER", "admin"),
             "protocol": "FTPS"
         },
-        # ... you can add more or load from JSON
     ]
     IMAP_HOST = os.getenv("IMAP_HOST", "imap.example.com")

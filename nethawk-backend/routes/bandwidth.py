@@ -39,18 +39,14 @@ import logging
 import psutil
 import time
 from flask import Blueprint, request, current_app
-# from flask_socketio import emit # We will use the passed socketio_instance.emit
-import threading # Use threading.Thread and threading.Event
+import threading 
 
 logger = logging.getLogger(__name__)
 
 bandwidth_bp = Blueprint('bandwidth_monitor', __name__)
 
-# Dictionary to store active bandwidth monitoring threads and their stop events
-# Key: client_sid (string)
-# Value: { 'thread': threading.Thread, 'stop_event': threading.Event() }
 active_bandwidth_sessions = {}
-bandwidth_sessions_lock = threading.Lock() # Protects active_bandwidth_sessions
+bandwidth_sessions_lock = threading.Lock() 
 
 def _monitor_loop(sid, app_context, socketio_instance):
     """
@@ -60,7 +56,6 @@ def _monitor_loop(sid, app_context, socketio_instance):
     _last_net_io_counters = psutil.net_io_counters()
     _last_timestamp = time.time()
 
-    # Acquire Flask application context within the thread
     with app_context:
         logger.info(f"Bandwidth monitor loop started for SID: {sid}")
         session_info = None
@@ -75,12 +70,11 @@ def _monitor_loop(sid, app_context, socketio_instance):
 
         while not stop_event.is_set():
             try:
-                # Use socketio_instance.sleep() which is Eventlet-friendly
-                socketio_instance.sleep(2) # Monitor every 2 seconds
+                socketio_instance.sleep(2) 
 
                 now = time.time()
                 cur = psutil.net_io_counters()
-                elapsed = now - _last_timestamp or 1 # Avoid division by zero
+                elapsed = now - _last_timestamp or 1 
 
                 sent_bps = (cur.bytes_sent - _last_net_io_counters.bytes_sent) / elapsed
                 recv_bps = (cur.bytes_recv - _last_net_io_counters.bytes_recv) / elapsed
@@ -107,16 +101,13 @@ def _monitor_loop(sid, app_context, socketio_instance):
                     "ping": ping_ms
                 }
 
-                # Emit the update only to the specific client that requested it
                 socketio_instance.emit('bandwidth_update', bandwidth_data, room=sid)
                 logger.debug(f"SID {sid}: Emitted bandwidth_update: {bandwidth_data}")
 
             except Exception as e:
                 logger.error(f"SID {sid}: Error in bandwidth monitor loop: {e}", exc_info=True)
-                socketio_instance.sleep(1) # Sleep briefly to prevent rapid error looping
 
         logger.info(f"Bandwidth monitor loop stopped for SID: {sid}")
-        # Clean up session data when loop exits (e.g., stop event was set)
         with bandwidth_sessions_lock:
             if sid in active_bandwidth_sessions:
                 del active_bandwidth_sessions[sid]
@@ -129,8 +120,7 @@ def clear_bandwidth_session(sid):
     with bandwidth_sessions_lock:
         if sid in active_bandwidth_sessions:
             logger.info(f"Clearing bandwidth session for SID: {sid}")
-            active_bandwidth_sessions[sid]['stop_event'].set() # Signal thread to stop
-            # No need to join thread here, it will terminate itself.
+            active_bandwidth_sessions[sid]['stop_event'].set() 
             del active_bandwidth_sessions[sid]
             return True
     return False
@@ -146,18 +136,13 @@ def register_bandwidth_socket_events(socketio_instance):
         logger.info(f"Received start_bandwidth_monitor from SID: {sid}")
 
         with bandwidth_sessions_lock:
-            # Use .is_alive() for threading.Thread objects
             if sid in active_bandwidth_sessions and active_bandwidth_sessions[sid]['thread'].is_alive():
                 logger.info(f"Bandwidth monitor already active for SID: {sid}. Not starting new one.")
                 socketio_instance.emit('bandwidth_status', {'status': 'info', 'message': 'Bandwidth monitor already running.'}, room=sid)
                 return
-
-            # Clear any stale stop event or previous entry
             clear_bandwidth_session(sid)
 
             stop_event = threading.Event()
-            # Start a new background thread for this client
-            # Pass the app_context and socketio_instance explicitly
             thread = threading.Thread(target=_monitor_loop, args=(sid, current_app.app_context(), socketio_instance))
             thread.start()
 

@@ -8,20 +8,6 @@ def parse_ftp_list(lines: list[str]) -> list[dict]:
     """
     items = []
     
-    # Regex to parse Unix-style FTP LIST output:
-    # Captures: permissions, num_links, owner, group, size, month, day, time_or_year, name
-    # Example line: drwxr-xr-x 2 owner group 4096 Jan 1 10:00 directory_name
-    # Example line: -rw-r--r-- 1 owner group 12345 Jan 1 2024 file_name
-    
-    # This regex is designed to capture common variations.
-    # (\S+) = Non-whitespace characters (for permissions, owner, group, parts of date)
-    # \s+   = One or more whitespace characters
-    # (\d+) = One or more digits (for num_links, size, day)
-    # (?:\d{2}:\d{2}|\d{4}) = Non-capturing group for either HH:MM or YYYY
-    # (.*)  = Captures the rest of the line for the name
-    
-    # Note: Some older FTP servers might not include num_links, owner, or group.
-    # This regex expects them, but you can adjust it if you face issues with very minimal outputs.
     regex = re.compile(
         r"^(?P<permissions>[drwx-]{10})\s+"    # Permissions (e.g., drwxr-xr-x)
         r"(?P<num_links>\d+)\s+"               # Number of links
@@ -49,7 +35,6 @@ def parse_ftp_list(lines: list[str]) -> list[dict]:
                 if ' -> ' in data['name']:
                     data['name'] = data['name'].split(' -> ')[0]
             
-            # Skip '.' and '..' entries which represent current and parent directories
             if data['name'] == "." or data['name'] == "..":
                 continue
 
@@ -57,10 +42,8 @@ def parse_ftp_list(lines: list[str]) -> list[dict]:
                 "name": data['name'],
                 "type": file_type,
                 "size": int(data['size']),
-                # Combine date/time parts for the modified string
                 "modified": f"{data['month']} {data['day']} {data['time_or_year']}",
                 "permissions": data['permissions'],
                 "owner": data['owner']
-                # You can also include 'group': data['group'] if needed on frontend
             })
     return items

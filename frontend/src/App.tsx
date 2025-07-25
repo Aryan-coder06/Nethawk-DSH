@@ -2,6 +2,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { Dashboard } from '@/components/dashboard';
 import { Toaster } from '@/components/ui/sonner';
 import './App.css';
+// Main function mei add one kiya hain regarding AUth
 
 function App() {
   return (

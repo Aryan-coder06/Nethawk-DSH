@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Play, 
@@ -13,7 +13,9 @@ import {
   Shield,
   AlertCircle,
   CheckCircle,
-  Clock
+  Clock,
+  Info,
+  ChevronDown
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,6 +26,8 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip as Hint, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { PageGuide } from '@/components/page-guide';
 
 interface Device {
   ip: string;
@@ -76,6 +80,11 @@ export function NetworkScanner() {
   const [scanType, setScanType] = useState('quick');
   const [devices] = useState<Device[]>(mockDevices);
   const [activeTab, setActiveTab] = useState('devices');
+  const guideRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToGuide = () => {
+    guideRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const handleScan = () => {
     setIsScanning(true);
@@ -111,8 +120,29 @@ export function NetworkScanner() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <h1 className="text-3xl font-bold">Network Scanner</h1>
-        <p className="text-muted-foreground">Discover and analyze devices on your network</p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Network Scanner</h1>
+            <p className="text-muted-foreground">Discover and analyze devices on your network</p>
+          </div>
+          <TooltipProvider>
+            <Hint>
+              <TooltipTrigger asChild>
+                <motion.button
+                  type="button"
+                  onClick={scrollToGuide}
+                  whileHover={{ y: 3 }}
+                  className="group hidden items-center gap-2 rounded-full border border-border/60 bg-background px-4 py-2 text-sm text-muted-foreground shadow-sm transition hover:text-foreground md:flex"
+                >
+                  <Info className="h-4 w-4 text-primary" />
+                  How it works
+                  <ChevronDown className="h-4 w-4 transition-transform group-hover:translate-y-1" />
+                </motion.button>
+              </TooltipTrigger>
+              <TooltipContent>Jump to the scanner guide below</TooltipContent>
+            </Hint>
+          </TooltipProvider>
+        </div>
       </motion.div>
 
       {/* Scan Configuration */}
@@ -365,6 +395,36 @@ export function NetworkScanner() {
           </CardContent>
         </Card>
       </motion.div>
+
+      <div ref={guideRef} className="pt-4">
+        <PageGuide
+          headlineParts={[
+            { text: 'See ', highlight: false },
+            { text: 'every device', highlight: true },
+            { text: ' on your network, at a glance.', highlight: false }
+          ]}
+          description="Right now the UI is ready; the live LAN discovery engine is the next step."
+          items={[
+            {
+              title: 'Scan profile',
+              description: 'Quick vs comprehensive scans change how deep the discovery goes.'
+            },
+            {
+              title: 'Device table',
+              description: 'IP/MAC/hostname make it easy to spot unknown or risky devices.'
+            },
+            {
+              title: 'Next upgrade',
+              description: 'Live ARP/Nmap scanning will replace the mock feed.'
+            }
+          ]}
+          innovations={[
+            'Built to make discovery readable for non-experts.',
+            'Clear device risk hints, even in mock mode.',
+            'Engine-ready layout for future real scanning.'
+          ]}
+        />
+      </div>
     </div>
   );
 }

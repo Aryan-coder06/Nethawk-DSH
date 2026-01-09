@@ -6,5 +6,4 @@ services:
     dockerfilePath: ./nethawk-backend/Dockerfile
     envVars:
       - key: FRONTEND_URL
-        value: https://nethawk-dsh.vercel.app  # For Vercel
-        
+        value: https://nethawk-dsh.vercel.app  # You can later change this to your Vercel URL

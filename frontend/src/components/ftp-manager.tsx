@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'; 
+import { useState, useEffect, useRef } from 'react'; 
 import { motion } from 'framer-motion';
 import io, { Socket } from 'socket.io-client'; 
 import {
@@ -17,7 +17,9 @@ import {
   FileText,
   Image,
   Archive,
-  Folder
+  Folder,
+  Info,
+  ChevronDown
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,6 +31,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
+import { Tooltip as Hint, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { PageGuide } from '@/components/page-guide';
 
 interface FtpConnection {
   id: string;
@@ -120,11 +124,16 @@ export function FtpManager() {
   const [isUploading, setIsUploading] = useState(false);
 
   const [newConnectionDialog, setNewConnectionDialog] = useState(false);
+  const guideRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToGuide = () => {
+    guideRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const activeConnection = connections.find(c => c.id === selectedConnectionId);
 
   useEffect(() => {
-    fetch('/api/ftp/connections') 
+    fetch(`${BACKEND_URL}/ftp/connections`) 
       .then(response => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -271,8 +280,29 @@ export function FtpManager() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <h1 className="text-3xl font-bold">FTP Manager</h1>
-        <p className="text-muted-foreground">Manage FTP connections and transfer files securely</p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">FTP Manager</h1>
+            <p className="text-muted-foreground">Manage FTP connections and transfer files securely</p>
+          </div>
+          <TooltipProvider>
+            <Hint>
+              <TooltipTrigger asChild>
+                <motion.button
+                  type="button"
+                  onClick={scrollToGuide}
+                  whileHover={{ y: 3 }}
+                  className="group hidden items-center gap-2 rounded-full border border-border/60 bg-background px-4 py-2 text-sm text-muted-foreground shadow-sm transition hover:text-foreground md:flex"
+                >
+                  <Info className="h-4 w-4 text-primary" />
+                  How it works
+                  <ChevronDown className="h-4 w-4 transition-transform group-hover:translate-y-1" />
+                </motion.button>
+              </TooltipTrigger>
+              <TooltipContent>Jump to the FTP guide below</TooltipContent>
+            </Hint>
+          </TooltipProvider>
+        </div>
       </motion.div>
 
       <motion.div
@@ -601,6 +631,38 @@ export function FtpManager() {
           </Card>
         </motion.div>
       )}
+
+      <div ref={guideRef} className="pt-4">
+        <PageGuide
+          headlineParts={[
+            { text: 'A clean ', highlight: false },
+            { text: 'FTP workspace', highlight: true },
+            { text: ' that makes remote files ', highlight: false },
+            { text: 'feel', highlight: true },
+            { text: ' local.', highlight: false }
+          ]}
+          description="Browse remote directories with clear, parsed listings from the FTP server."
+          items={[
+            {
+              title: 'Connections',
+              description: 'Select a profile, enter a password, and connect for this session.'
+            },
+            {
+              title: 'Directory view',
+              description: 'Backend parses FTP LIST output into a friendly file table.'
+            },
+            {
+              title: 'Transfers',
+              description: 'Upload/download wiring is next; the UI is ready for progress tracking.'
+            }
+          ]}
+          innovations={[
+            'Parsed listings reduce raw FTP noise for beginners.',
+            'Real-time session state keeps the UI honest.',
+            'Transfer UI is staged for quick future rollout.'
+          ]}
+        />
+      </div>
     </div>
   );
 }

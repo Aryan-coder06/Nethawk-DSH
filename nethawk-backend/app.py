@@ -25,6 +25,8 @@ import datetime
 
 from routes.port_scanner import run_port_scan, ip_add_pattern, parse_ports_string
 
+from metrics_store import metrics_store
+
 from routes.ftp import ftp_bp
 from routes.mail_checker import mail_bp, register_mail_socket_events
 
@@ -32,7 +34,7 @@ frontend_origin = os.getenv("FRONTEND_URL", "http://localhost:5173")
 socketio = SocketIO(cors_allowed_origins=[frontend_origin])
 
 bandwidth_thread = None
-bandwidth_stop_event = Event() 
+bandwidth_stop_event = Event()      
 
 ftp_clients = {}
 ftp_clients_lock = Lock()
@@ -49,12 +51,13 @@ def bandwidth_monitor_task():
     Runs in an Eventlet-patched Thread.
     """
     _last, _last_t = psutil.net_io_counters(), time.time()
+    _last_pernic = psutil.net_io_counters(pernic=True)
 
     with app.app_context():
         logger.info("Bandwidth monitor task started inside app context.")
         while not bandwidth_stop_event.is_set():
             try:
-                socketio.sleep(2) 
+                socketio.sleep(2)
 
                 now = time.time()
                 cur = psutil.net_io_counters()
@@ -66,12 +69,12 @@ def bandwidth_monitor_task():
                 upload_mbps = round((sent_bps * 8) / (1024 * 1024), 2)
                 download_mbps = round((recv_bps * 8) / (1024 * 1024), 2)
 
-                ping_ms = 0.0 
+                ping_ms = 0.0
                 try:
                     ping_ms = round(psutil.cpu_times_percent(interval=0.1).user, 2)
                 except Exception as ping_e:
                     logger.warning(f"Error calculating 'ping' (CPU usage): {ping_e}")
-                    ping_ms = -1 
+                    ping_ms = -1
 
                 _last, _last_t = cur, now
 
@@ -79,17 +82,40 @@ def bandwidth_monitor_task():
 
                 bandwidth_data = {
                     "timestamp": timestamp,
+                    "ts": int(now),
                     "upload": upload_mbps,
                     "download": download_mbps,
                     "ping": ping_ms
                 }
 
                 socketio.emit('bandwidth_update', bandwidth_data)
+                metrics_store.add_bandwidth_point(bandwidth_data)
+
+                current_pernic = psutil.net_io_counters(pernic=True)
+                interface_usage = []
+                for name, cur_stats in current_pernic.items():
+                    prev_stats = _last_pernic.get(name)
+                    if not prev_stats:
+                        continue
+                    sent_bps = (cur_stats.bytes_sent - prev_stats.bytes_sent) / elapsed
+                    recv_bps = (cur_stats.bytes_recv - prev_stats.bytes_recv) / elapsed
+                    upload_mbps = round((sent_bps * 8) / (1024 * 1024), 2)
+                    download_mbps = round((recv_bps * 8) / (1024 * 1024), 2)
+                    total_mbps = round(upload_mbps + download_mbps, 2)
+                    interface_usage.append({
+                        "name": name,
+                        "upload": upload_mbps,
+                        "download": download_mbps,
+                        "total": total_mbps
+                    })
+                interface_usage.sort(key=lambda item: item["total"], reverse=True)
+                metrics_store.set_interface_snapshot(interface_usage)
+                _last_pernic = current_pernic
 
             except Exception as e:
-                logger.error(f"Error in bandwidth_monitor_task: {e}", exc_info=True) 
-                socketio.sleep(1) 
-        logger.info("Bandwidth monitor task stopped.") 
+                logger.error(f"Error in bandwidth_monitor_task: {e}", exc_info=True)
+                socketio.sleep(1)
+        logger.info("Bandwidth monitor task stopped.")
 
 @socketio.on('connect')
 def handle_connect():
@@ -325,6 +351,37 @@ def handle_ftp_disconnect_event():
                 'message': 'No active FTP connection to disconnect.',
                 'is_connected': False
             }, room=sid)
+@socketio.on('ftp_list_dir')
+def handle_ftp_list_dir(data):
+    """Handles FTP directory listing requests from a client."""
+    sid = request.sid
+    path = data.get('path', '/')
+
+    with ftp_clients_lock:
+        client_info = ftp_clients.get(sid)
+
+    if not client_info or not client_info.get('ftp_instance'):
+        emit('ftp_status', {
+            'status': 'error',
+            'message': 'Not connected to any FTP server.',
+            'is_connected': False
+        }, room=sid)
+        return
+
+    try:
+        lines = []
+        client_info['ftp_instance'].retrlines(f"LIST {path}", lines.append)
+        files = parse_ftp_list(lines)
+        client_info['current_path'] = path
+        emit('ftp_dir_listing', {'path': path, 'files': files}, room=sid)
+    except Exception as e:
+        logger.error(f"FTP list error for SID {sid}: {e}")
+        emit('ftp_status', {
+            'status': 'error',
+            'message': f'Failed to list directory: {e}',
+            'is_connected': True
+        }, room=sid)
+
 
 def create_app():
     app = Flask(__name__)
@@ -381,10 +438,16 @@ def create_app():
         from routes.overview import ov_bp
         from routes.ftp import ftp_bp
         from routes.mail_checker import mail_bp, register_mail_socket_events
+        from routes.bandwidth_api import bandwidth_api_bp
+        from routes.settings import settings_bp
+        from routes.notifications import notifications_bp
 
         app.register_blueprint(ov_bp, url_prefix="/api/overview")
         app.register_blueprint(ftp_bp, url_prefix="/ftp")
         app.register_blueprint(mail_bp, url_prefix="/api/mail")
+        app.register_blueprint(bandwidth_api_bp, url_prefix="/api/bandwidth")
+        app.register_blueprint(settings_bp, url_prefix="/api/settings")
+        app.register_blueprint(notifications_bp, url_prefix="/api/notifications")
         logger.info("Blueprints registered successfully.")
 
         register_mail_socket_events(socketio)

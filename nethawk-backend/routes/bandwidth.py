@@ -1,40 +1,3 @@
-# from flask import Blueprint, jsonify
-# import psutil, time
-
-# bw_bp = Blueprint("bandwidth", __name__)
-# _last, _last_t = psutil.net_io_counters(), time.time()
-
-# @bw_bp.route("/", methods=["GET"])
-# def get_bw():
-#     global _last, _last_t
-#     now = time.time()
-#     cur = psutil.net_io_counters()
-#     elapsed = now - _last_t or 1
-
-#     # Calculate bytes per second
-#     sent = (cur.bytes_sent - _last.bytes_sent) / elapsed
-#     recv = (cur.bytes_recv - _last.bytes_recv) / elapsed
-
-#     # Convert to Mbps (Megabits per second)
-#     upload_mbps = round((sent * 8) / (1024 * 1024), 2)
-#     download_mbps = round((recv * 8) / (1024 * 1024), 2)
-
-#     # Simulated ping (replace later with actual ICMP if needed)
-#     ping_ms = round(psutil.cpu_percent(interval=0.1), 2)
-
-#     _last, _last_t = cur, now
-
-#     # Format timestamp
-#     timestamp = time.strftime("%H:%M:%S", time.localtime(now))
-#     print(f"{timestamp} s, {upload_mbps} Upload MP, {download_mbps} Download MB")
-
-#     return jsonify({
-#         "timestamp": timestamp,
-#         "upload": upload_mbps,
-#         "download": download_mbps,
-#         "ping": ping_ms
-#     })
-
 import logging
 import psutil
 import time
@@ -117,6 +80,7 @@ def clear_bandwidth_session(sid):
     Helper function to stop and clear a bandwidth monitoring session.
     Called on client disconnect or explicit stop request.
     """
+    
     with bandwidth_sessions_lock:
         if sid in active_bandwidth_sessions:
             logger.info(f"Clearing bandwidth session for SID: {sid}")

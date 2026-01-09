@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 // All your 'lucide-react' and UI component imports remain the same
 import { 
@@ -12,7 +12,9 @@ import {
   Download, 
   Filter,   
   Search,   
-  Settings
+  Settings,
+  Info,
+  ChevronDown
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,6 +26,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tooltip as Hint, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { PageGuide } from '@/components/page-guide';
 
 import { io } from 'socket.io-client';
 
@@ -115,6 +119,11 @@ export function PortScanner() {
   const [selectedCommonPorts, setSelectedCommonPorts] = useState<number[]>([]); // Default to empty
   const [activeTab, setActiveTab] = useState('results');
   const [filterStatus, setFilterStatus] = useState('all');
+  const guideRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToGuide = () => {
+    guideRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   // Helper to parse port ranges and return a sorted array of numbers
   const parsePortsInput = (input: string): number[] => {
@@ -294,8 +303,29 @@ export function PortScanner() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <h1 className="text-3xl font-bold">Port Scanner</h1>
-        <p className="text-muted-foreground">Real-time network port scanning and analysis</p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Port Scanner</h1>
+            <p className="text-muted-foreground">Real-time network port scanning and analysis</p>
+          </div>
+          <TooltipProvider>
+            <Hint>
+              <TooltipTrigger asChild>
+                <motion.button
+                  type="button"
+                  onClick={scrollToGuide}
+                  whileHover={{ y: 3 }}
+                  className="group hidden items-center gap-2 rounded-full border border-border/60 bg-background px-4 py-2 text-sm text-muted-foreground shadow-sm transition hover:text-foreground md:flex"
+                >
+                  <Info className="h-4 w-4 text-primary" />
+                  How it works
+                  <ChevronDown className="h-4 w-4 transition-transform group-hover:translate-y-1" />
+                </motion.button>
+              </TooltipTrigger>
+              <TooltipContent>Jump to the port scanning guide below</TooltipContent>
+            </Hint>
+          </TooltipProvider>
+        </div>
       </motion.div>
 
       {/* Scan Configuration */}
@@ -568,6 +598,38 @@ export function PortScanner() {
           </CardContent>
         </Card>
       </motion.div>
+
+      <div ref={guideRef} className="pt-4">
+        <PageGuide
+          headlineParts={[
+            { text: 'Fast ', highlight: false },
+            { text: 'port visibility', highlight: true },
+            { text: ' so you know ', highlight: false },
+            { text: 'what', highlight: true },
+            { text: ' is exposed.', highlight: false }
+          ]}
+          description="The scanner runs nmap TCP connect checks and streams updates in real time."
+          items={[
+            {
+              title: 'Port selection',
+              description: 'Scan custom ranges or common ports to triage quickly.'
+            },
+            {
+              title: 'Result states',
+              description: 'Open = responsive, Closed = refused, Filtered = blocked by firewall.'
+            },
+            {
+              title: 'Accuracy notes',
+              description: 'Latency and firewall rules affect results; repeat scans improve confidence.'
+            }
+          ]}
+          innovations={[
+            'Live scan updates instead of waiting for a full report.',
+            'Settings-driven timeouts and retries for smarter scanning.',
+            'Results are simplified for beginners without losing accuracy.'
+          ]}
+        />
+      </div>
     </div>
   );
 }

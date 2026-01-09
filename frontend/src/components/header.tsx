@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, Shield, User, Moon, Sun, Monitor } from 'lucide-react';
+import { Bell, Shield, User, Moon, Sun, Monitor, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -13,15 +13,42 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useTheme } from '@/components/theme-provider';
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
 type ActiveModule = 'overview' | 'network-scanner' | 'bandwidth' | 'port-scanner' | 'ftp' | 'mail' | 'settings';
 
 interface HeaderProps {
   setActiveModule: (module: ActiveModule) => void;
 }
 
+interface NotificationItem {
+  id: string;
+  type: string;
+  level: 'warning' | 'info' | 'critical';
+  message: string;
+  timestamp: number;
+}
+
 export function Header({ setActiveModule }: HeaderProps) {
-  const [notifications] = useState(3);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const { theme, setTheme } = useTheme();
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/notifications/`);
+        if (!response.ok) return;
+        const data = await response.json();
+        setNotifications(data.notifications || []);
+      } catch (err) {
+        console.error('Failed to fetch notifications:', err);
+      }
+    };
+
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <motion.header
@@ -82,14 +109,36 @@ export function Header({ setActiveModule }: HeaderProps) {
           </DropdownMenu>
 
           {}
-          <Button variant="ghost" size="icon" className="h-9 w-9 relative">
-            <Bell className="h-5 w-5" />
-            {notifications > 0 && (
-              <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-red-500 hover:bg-red-500">
-                {notifications}
-              </Badge>
-            )}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-9 w-9 relative">
+                <Bell className="h-5 w-5" />
+                {notifications.length > 0 && (
+                  <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-red-500 hover:bg-red-500">
+                    {notifications.length}
+                  </Badge>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <DropdownMenuLabel className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                Live Alerts
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {notifications.length === 0 ? (
+                <DropdownMenuItem className="text-sm text-muted-foreground">
+                  No alerts right now.
+                </DropdownMenuItem>
+              ) : (
+                notifications.map((item) => (
+                  <DropdownMenuItem key={item.id} className="text-sm">
+                    {item.message}
+                  </DropdownMenuItem>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {}
           {}

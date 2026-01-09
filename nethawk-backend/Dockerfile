@@ -15,7 +15,6 @@ COPY . .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose port used by the app
 EXPOSE 5000
 
 # Start Flask app with Gunicorn + eventlet

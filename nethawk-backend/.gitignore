@@ -1,0 +1,22 @@
+# Environment
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Logs
+logs
+*.log
+
+# Misc
+*.local
+package-lock.json

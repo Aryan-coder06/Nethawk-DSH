@@ -140,9 +140,6 @@ def register_mail_socket_events(socketio_instance):
         Expects { "id": "connection_id", "password": "optional_password_for_login" }
         """
         connection_id = data.get("id")
-        # Password for login should ideally be provided by the client each time
-        # or securely retrieved from a temporary session store, not from permanent config.
-        # For this demo, we fall back to stored if not provided.
         login_password = data.get("password")
 
         if not connection_id:
@@ -155,14 +152,12 @@ def register_mail_socket_events(socketio_instance):
             return
 
         username = mail_config["username"]
-        # Use password from data if provided, otherwise fallback to stored (less secure)
         if not login_password:
             login_password = mail_config.get("password")
             if not login_password:
                 emit("mail_status", {"status": "error", "message": "Password not provided for login."}, room=request.sid)
                 return
 
-        # Disconnect any existing connection for this specific session first
         current_imap_conn = get_session_connection(request.sid)
         if current_imap_conn:
             clear_session_connection(request.sid)
@@ -422,7 +417,6 @@ def register_mail_socket_events(socketio_instance):
         subject = data.get("subject", "Test Email from NetHawk Mail Checker")
         body = data.get("body", "This is a test email sent from your NetHawk Mail Checker application.")
         
-        # Use password from data if provided (more secure), otherwise fallback to stored
         smtp_password = data.get("password")
         if not smtp_password:
             smtp_password = mail_config.get("password")

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mail,
@@ -16,7 +16,9 @@ import {
   Folder,
   ChevronLeft,
   ChevronRight,
-  Download
+  Download,
+  Info,
+  ChevronDown
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,6 +34,8 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast'; 
 import { Textarea } from '@/components/ui/textarea';
 import io from 'socket.io-client';
+import { Tooltip as Hint, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { PageGuide } from '@/components/page-guide';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -153,6 +157,11 @@ export function MailChecker() {
 
   const [autoCheck, setAutoCheck] = useState(false); 
   const [checkInterval, setCheckInterval] = useState('5'); 
+  const guideRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToGuide = () => {
+    guideRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const fetchMailAccounts = useCallback(async () => {
     try {
@@ -525,8 +534,29 @@ export function MailChecker() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <h1 className="text-3xl font-bold">Mail Checker</h1>
-        <p className="text-muted-foreground">Monitor and manage email server connections</p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Mail Checker</h1>
+            <p className="text-muted-foreground">Monitor and manage email server connections</p>
+          </div>
+          <TooltipProvider>
+            <Hint>
+              <TooltipTrigger asChild>
+                <motion.button
+                  type="button"
+                  onClick={scrollToGuide}
+                  whileHover={{ y: 3 }}
+                  className="group hidden items-center gap-2 rounded-full border border-border/60 bg-background px-4 py-2 text-sm text-muted-foreground shadow-sm transition hover:text-foreground md:flex"
+                >
+                  <Info className="h-4 w-4 text-primary" />
+                  How it works
+                  <ChevronDown className="h-4 w-4 transition-transform group-hover:translate-y-1" />
+                </motion.button>
+              </TooltipTrigger>
+              <TooltipContent>Jump to the mail guide below</TooltipContent>
+            </Hint>
+          </TooltipProvider>
+        </div>
       </motion.div>
 
       {}
@@ -1123,6 +1153,38 @@ export function MailChecker() {
           </CardContent>
         </Card>
       </motion.div>
+
+      <div ref={guideRef} className="pt-4">
+        <PageGuide
+          headlineParts={[
+            { text: 'Readable ', highlight: false },
+            { text: 'mail telemetry', highlight: true },
+            { text: ' so you know ', highlight: false },
+            { text: 'what', highlight: true },
+            { text: ' is happening.', highlight: false }
+          ]}
+          description="Connect once and monitor inbox state without logging into every provider UI."
+          items={[
+            {
+              title: 'Connect to IMAP',
+              description: 'Read inbox headers and open message content on demand.'
+            },
+            {
+              title: 'Inbox pagination',
+              description: 'Uses IMAP UID paging to show newest items first.'
+            },
+            {
+              title: 'Test email',
+              description: 'SMTP with TLS sends a simple test message for verification.'
+            }
+          ]}
+          innovations={[
+            'Unified inbox monitoring with less friction.',
+            'Fast header-only fetch keeps it lightweight.',
+            'Test sends verify deliverability quickly.'
+          ]}
+        />
+      </div>
     </div>
   );
 }

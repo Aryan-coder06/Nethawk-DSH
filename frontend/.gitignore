@@ -10,8 +10,11 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.vite
+coverage
 *.local
 .env
+.env.*
 
 # Editor directories and files
 .vscode/*

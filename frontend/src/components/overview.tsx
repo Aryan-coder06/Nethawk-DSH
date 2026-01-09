@@ -1,13 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Activity, Cpu, HardDrive, Wifi, Shield, AlertTriangle,
-  TrendingUp, Users, Server, Clock 
+  TrendingUp, Users, Server, Clock, Info, ChevronDown
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
+import { Tooltip as Hint, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { PageGuide } from '@/components/page-guide';
 
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
@@ -18,6 +20,11 @@ export function Overview() {
   const [networkData, setNetworkData] = useState([]);
   const [deviceTypes, setDeviceTypes] = useState([]);
   const [recentActivities, setRecentActivities] = useState([]);
+  const guideRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToGuide = () => {
+    guideRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 3000);
@@ -55,7 +62,7 @@ export function Overview() {
 }, []);
 
 
-  const StatCard = ({ title, value, icon: Icon, progress, trend }: any) => (
+  const StatCard = ({ title, value, icon: Icon, progress, trend, info }: any) => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -63,7 +70,18 @@ export function Overview() {
     >
       <Card className="relative overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">{title}</CardTitle>
+          <CardTitle className="text-sm font-medium flex items-center gap-2">{title}{info ? (
+            <TooltipProvider>
+              <Hint>
+                <TooltipTrigger asChild>
+                  <button type="button" className="text-muted-foreground hover:text-foreground">
+                    <Info className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>{info}</TooltipContent>
+              </Hint>
+            </TooltipProvider>
+          ) : null}</CardTitle>
           <Icon className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
@@ -92,9 +110,28 @@ export function Overview() {
           <h1 className="text-3xl font-bold">Network Overview</h1>
           <p className="text-muted-foreground">Real-time system and network monitoring</p>
         </div>
-        <div className="text-right">
-          <div className="text-2xl font-mono">{currentTime.toLocaleTimeString()}</div>
-          <div className="text-sm text-muted-foreground">{currentTime.toLocaleDateString()}</div>
+        <div className="flex items-center gap-4">
+          <TooltipProvider>
+            <Hint>
+              <TooltipTrigger asChild>
+                <motion.button
+                  type="button"
+                  onClick={scrollToGuide}
+                  whileHover={{ y: 3 }}
+                  className="group flex items-center gap-2 rounded-full border border-border/60 bg-background px-4 py-2 text-sm text-muted-foreground shadow-sm transition hover:text-foreground"
+                >
+                  <Info className="h-4 w-4 text-primary" />
+                  How it works
+                  <ChevronDown className="h-4 w-4 transition-transform group-hover:translate-y-1" />
+                </motion.button>
+              </TooltipTrigger>
+              <TooltipContent>Jump to the overview guide below</TooltipContent>
+            </Hint>
+          </TooltipProvider>
+          <div className="text-right">
+            <div className="text-2xl font-mono">{currentTime.toLocaleTimeString()}</div>
+            <div className="text-sm text-muted-foreground">{currentTime.toLocaleDateString()}</div>
+          </div>
         </div>
       </motion.div>
 
@@ -103,7 +140,7 @@ export function Overview() {
         <StatCard title="CPU Usage" value={systemStats.cpu} icon={Cpu} progress={systemStats.cpu} trend="+2.1" />
         <StatCard title="Memory Usage" value={systemStats.memory} icon={Activity} progress={systemStats.memory} trend="+5.3" />
         <StatCard title="Disk Usage" value={systemStats.disk} icon={HardDrive} progress={systemStats.disk} trend="+1.2" />
-        <StatCard title="Network Load" value={systemStats.network} icon={Wifi} progress={systemStats.network} trend="+8.7" />
+        <StatCard title="Network Load" value={systemStats.network} icon={Wifi} progress={systemStats.network} trend="+8.7" info="Derived from total bytes sent+received; normalized to a 0-100 scale." />
       </div>
 
       {/* Charts Section */}
@@ -149,9 +186,21 @@ export function Overview() {
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Users className="h-5 w-5" />
-                <span>Connected Devices</span>
+                <span>Interface Breakdown</span>
+                <TooltipProvider>
+                  <Hint>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="text-muted-foreground hover:text-foreground">
+                        <Info className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Counts local network interfaces by type (Ethernet, Wi-Fi, Loopback).
+                    </TooltipContent>
+                  </Hint>
+                </TooltipProvider>
               </CardTitle>
-              <CardDescription>Device types on your network</CardDescription>
+              <CardDescription>Local network interfaces detected on this machine</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-center">
@@ -220,6 +269,38 @@ export function Overview() {
           </CardContent>
         </Card>
       </motion.div>
+
+      <div ref={guideRef} className="pt-4">
+        <PageGuide
+          headlineParts={[
+            { text: 'A clear ', highlight: false },
+            { text: 'system', highlight: true },
+            { text: ' heartbeat that explains ', highlight: false },
+            { text: 'what', highlight: true },
+            { text: ' your machine is doing.', highlight: false }
+          ]}
+          description="Your overview turns raw system counters into an easy story about health, load, and connectivity."
+          items={[
+            {
+              title: 'CPU, Memory, Disk',
+              description: 'Live snapshot from psutil. You see real usage, not a smoothed average.'
+            },
+            {
+              title: 'Network Load',
+              description: 'Bytes sent+received normalized to a 0–100 range for quick reading.'
+            },
+            {
+              title: 'Interface Breakdown',
+              description: 'Counts Ethernet/Wi-Fi/Loopback to show how your machine routes traffic.'
+            }
+          ]}
+          innovations={[
+            'Live counters are explained with context, not just numbers.',
+            'Interface-level awareness keeps the chart honest about where traffic flows.',
+            'Designed as a quick-read snapshot for non-experts.'
+          ]}
+        />
+      </div>
     </div>
   );
 }

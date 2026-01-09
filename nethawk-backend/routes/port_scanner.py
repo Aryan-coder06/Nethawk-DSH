@@ -3,13 +3,41 @@ import re
 import time
 import eventlet
 from threading import Event
-import logging # Import logging module
-import subprocess # Import subprocess module for direct command execution
+import logging 
+import subprocess 
 
-# Configure logging at the top of the file or in app.py
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+from metrics_store import metrics_store
+
 ip_add_pattern = re.compile(r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$")
+
+
+def _get_scan_config():
+    settings = metrics_store.get_settings()
+    adv = settings.get("advanced", {})
+    try:
+        timeout = int(adv.get("scan_timeout", 30))
+    except ValueError:
+        timeout = 30
+    try:
+        threads = int(adv.get("scan_threads", 10))
+    except ValueError:
+        threads = 10
+    try:
+        retries = int(adv.get("scan_retries", 3))
+    except ValueError:
+        retries = 3
+
+    timeout = max(5, min(timeout, 300))
+    threads = max(1, min(threads, 100))
+    retries = max(0, min(retries, 10))
+
+    return {
+        "timeout": timeout,
+        "threads": threads,
+        "retries": retries
+    }
 
 def parse_ports_string(ports_input_string):
     """
@@ -57,10 +85,29 @@ def run_port_scan(ip_address, ports_string, stop_event):
         yield {"status": "stopped", "message": "Scan aborted before starting."}
         return
 
-    yield {"status": "info", "message": f"Starting scan on {ip_address} for ports: {nmap_ports_arg}"}
+    yield {"status": "info", "message": f"Starting scan on {ip_address} for ports: {nmap_ports_arg}", "ip": ip_address}
     
     try:
-        nmap_options_list = ["-Pn", "-sT", "-T4", "-p", nmap_ports_arg, "--host-timeout", "5m", "--max-retries", "3", "-oX", "-"]  # -sT = TCP connect scan
+        scan_cfg = _get_scan_config()
+        host_timeout = f"{scan_cfg['timeout']}s"
+
+        nmap_options_list = [
+            "-Pn",
+            "-sT",
+            "-T4",
+            "-p",
+            nmap_ports_arg,
+            "--host-timeout",
+            host_timeout,
+            "--max-retries",
+            str(scan_cfg["retries"]),
+            "--min-parallelism",
+            str(scan_cfg["threads"]),
+            "--max-parallelism",
+            str(scan_cfg["threads"]),
+            "-oX",
+            "-"
+        ]  # -sT = TCP connect scan
 
         command = ['nmap'] + nmap_options_list + [ip_address] 
 
@@ -71,7 +118,7 @@ def run_port_scan(ip_address, ports_string, stop_event):
 
         # Execute Nmap using subprocess.run
         # Use a timeout to prevent indefinite hangs, and allow interrupt
-        process = None # Initialize process to None
+        process = None 
         try:
             # We don't have real-time progress updates with this method unless we parse stderr
             # on the fly, which is more complex. So, progress will be basic.
@@ -85,7 +132,6 @@ def run_port_scan(ip_address, ports_string, stop_event):
                 text=True # Decode stdout/stderr automatically
             )
             
-            # Simple loop to check for stop_event while process runs
             while process.poll() is None: # While process is still running
                 if stop_event.is_set():
                     logging.info("Scan stopped by user request during execution (subprocess).")

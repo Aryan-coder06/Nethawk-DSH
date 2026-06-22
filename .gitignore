@@ -13,6 +13,8 @@ pnpm-debug.log*
 # Environment
 .env
 .env.*
+.nethawk/
+nethawk-backend/.nethawk/
 
 # Python
 __pycache__/

@@ -1,5 +1,6 @@
-from flask import Blueprint, jsonify, current_app
+from flask import Blueprint, jsonify, request
 import psutil, shutil, time
+from metrics_store import metrics_store
 
 ov_bp = Blueprint("overview", __name__)
 
@@ -81,9 +82,5 @@ def devices():
 
 @ov_bp.route("/activity", methods=["GET"])
 def activity():
-    return jsonify([
-        {"id": 1, "type": "scan", "message": "Port scan on 192.168.1.1", "time": "2 min ago", "status": "success"},
-        {"id": 2, "type": "alert", "message": "High bandwidth usage", "time": "5 min ago", "status": "warning"},
-        {"id": 3, "type": "connection", "message": "New device connected", "time": "8 min ago", "status": "info"},
-        {"id": 4, "type": "security", "message": "Firewall blocked suspicious", "time": "12 min ago", "status": "success"}
-    ])
+    limit = request.args.get("limit", default=10, type=int)
+    return jsonify(metrics_store.get_activities(limit=limit))

@@ -1,0 +1,59 @@
+Screen {
+    background: #071016;
+    color: #d7f9ff;
+}
+
+#root {
+    layout: vertical;
+}
+
+#body {
+    layout: horizontal;
+    height: 1fr;
+}
+
+#sidebar {
+    width: 26;
+    height: 100%;
+    padding: 1 0;
+}
+
+#main {
+    width: 1fr;
+    height: 100%;
+    padding: 1;
+}
+
+#main_area {
+    width: 1fr;
+    height: 100%;
+    layout: vertical;
+}
+
+#content {
+    height: 1fr;
+}
+
+.form {
+    height: auto;
+    padding: 0 1;
+    border: round #155e75;
+    display: none;
+}
+
+.form Input {
+    margin: 0 1 1 0;
+}
+
+.form Button {
+    margin: 0 1 1 0;
+}
+
+#topbar {
+    height: 3;
+}
+
+#bottombar {
+    height: 3;
+    color: #8aa6ad;
+}

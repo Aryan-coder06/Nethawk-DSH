@@ -1,162 +1,264 @@
-# Nethawk-DSH 🌐🦅
+# NetHawk
 
-A real-time Network Utility Dashboard built to make everyday network visibility **simple, visual, and useful**. Nethawk-DSH brings multiple utilities (bandwidth, port scanning, FTP, mail checks, notifications, settings) into one clean, modern interface so anyone can monitor and understand their local network activity without digging through terminal logs.
+NetHawk is a **terminal-first local network diagnostics suite**. It monitors the machine it is running on, explains likely network/system issues through a rule-based Network Doctor, runs local port scans, and stores audit history for review.
 
----
+The original project started as a React + Flask network dashboard. During development, the product direction was corrected: a deployed web backend mostly monitors the deployed server/container, not the user's actual laptop or local network. NetHawk is now local-first, with the Textual TUI as the primary interface and the React dashboard kept as an optional localhost visual dashboard.
 
-## 📌 Index
-- [Why Nethawk-DSH?](#-why-nethawk-dsh)
-- [What Problem It Solves](#-what-problem-it-solves)
-- [Key Highlights](#-key-highlights)
-- [Real-Time Features](#-real-time-features)
-- [Core Tools Explained](#-core-tools-explained)
-- [Architecture Overview](#-architecture-overview)
-- [Tech Stack](#-tech-stack)
-- [My Customization & Speciality](#-my-customization--speciality)
-- [How It Stands Out](#-how-it-stands-out)
-- [Local Setup](#-local-setup)
-- [Usage Tips](#-usage-tips)
-- [Roadmap](#-roadmap)
-- [License](#-license)
+## What It Does
 
----
+- Shows real local CPU, memory, disk, upload/download, uptime, and TCP latency metrics.
+- Refreshes the TUI dashboard every 1.25 seconds.
+- Measures latency with a permission-safe TCP connection instead of raw ICMP ping.
+- Runs local Nmap scans from the TUI without requiring the Flask server.
+- Labels common exposed ports such as SSH, Telnet, Redis, MongoDB, MySQL, PostgreSQL, and RDP.
+- Generates deterministic Network Doctor cards with evidence and suggested actions.
+- Persists settings and activity history in local JSON storage.
+- Keeps the existing React + Flask dashboard available for localhost visualization.
 
-## 🎯 Why Nethawk-DSH?
-Most network utilities are built for advanced users or live as separate tools. Nethawk-DSH **unifies** them into a single dashboard so beginners and professionals can **see what’s happening instantly**. It is designed for clarity, focus, and real-time understanding.
+## Why Local-First
 
----
+A network diagnostics tool should inspect the user's own machine and network path. If the backend is deployed to a cloud host, it can only observe that cloud host's CPU, interfaces, latency, and ports. That is useful for server monitoring, but not for answering questions like:
 
-## 🧩 What Problem It Solves
-- **Fragmentation:** You normally need multiple tools for bandwidth, ports, FTP, and email checks.
-- **Low visibility:** Raw output is hard to interpret without graphs or context.
-- **Lack of realtime UI:** Traditional tools refresh slowly or require manual execution.
+- Is my laptop under CPU or memory pressure?
+- Is my current network upload causing latency?
+- Which local services are exposed on my machine?
+- What changed recently in my local diagnostics history?
 
-Nethawk-DSH solves this by providing **live charts, notifications, and guided explanations** directly in the UI.
+For those workflows, the tool must run locally. NetHawk's TUI directly imports the reusable Python core modules and does not need the Flask server to be running.
 
----
+## Features
 
-## ✨ Key Highlights
-- **Live monitoring** of bandwidth with history and interface breakdown.
-- **Port scanning** using Nmap with optimized parameters and cleaner results.
-- **FTP Manager** integration for quick local transfer visibility.
-- **Mail Checker** for latency + server response inspection.
-- **Settings sync** with backend storage and toast feedback.
-- **Realtime notifications** in the header using backend updates.
+### Terminal UI
 
----
+The Textual + Rich TUI has 7 screens:
 
-## ⚡ Real-Time Features
-- **Bandwidth tracking:** 24-hour history + device/interface usage.
-- **Notifications bell:** Auto-refreshes every 15s from the backend.
-- **Settings persistence:** Saves server-side so UI stays consistent.
-- **Socket-based updates:** Live updates reduce manual refreshes.
+- Dashboard
+- Doctor
+- Port Scan
+- Bandwidth
+- History
+- Settings
+- Help
 
----
+Keyboard shortcuts:
 
-## 🧰 Core Tools Explained
+| Key | Action |
+| --- | --- |
+| `q` | Quit |
+| `r` | Refresh |
+| `d` | Dashboard |
+| `o` | Doctor |
+| `s` | Port Scan |
+| `b` | Bandwidth |
+| `h` | History |
+| `g` | Settings |
+| `?` | Help |
+| `Up/Down` | Move through sidebar navigation |
 
-### 📊 Overview
-A central view of network activity with live graphs, breakdowns, and quick insights. Gives a fast pulse-check for your system/network health.
+### Network Doctor
 
-### 📈 Bandwidth Monitor
-Tracks upload/download in realtime, keeps history for 24h, and splits usage by interface (Wi-Fi, Ethernet, Loopback). Ideal for spotting spikes or unnecessary traffic.
+The Network Doctor is rule-based, not ML. It turns metrics, latency, activity history, and latest scan data into cards containing:
 
-### 🔍 Port Scanner
-Uses optimized Nmap options to scan common or custom ports. The results are simplified so anyone can read:
-- **Open:** reachable
-- **Closed:** actively refused
-- **Filtered:** blocked by firewall
+- severity
+- title
+- possible cause
+- evidence
+- suggested actions
 
-### 📁 FTP Manager
-Allows basic FTP interactions and directory listing. Useful for local transfer monitoring and validating FTP availability.
+Implemented rules include:
 
-### ✉️ Mail Checker
-Checks responsiveness and gives visibility into mail server status and delays.
+- healthy system state
+- high latency with heavy upload
+- high latency without local CPU/network load
+- high CPU with heavy network activity
+- high CPU with low network usage
+- high memory pressure
+- SSH exposure on port 22
+- RDP exposure on port 3389
+- many open ports
+- frequent recent warning/error events
+- latency target unavailable
 
-### ⚙️ Settings
-Controls scan timeouts, retries, and notifications. Changes persist via backend so the system behaves consistently.
+### Port Scanning
 
----
+The TUI runs local Nmap scans and displays:
 
-## 🧠 Architecture Overview
-- **Frontend:** React + modern UI layout, chart components, and guided tool explanations.
-- **Backend:** Flask + SocketIO for realtime updates and APIs.
-- **Data Flow:** Metrics are generated in backend loops → stored locally/Redis → served to frontend via API + sockets.
+- port
+- protocol
+- state
+- service
+- risk label
 
----
+Common risk labels are included for ports such as `21`, `22`, `23`, `25`, `53`, `80`, `110`, `143`, `443`, `3306`, `5432`, `6379`, `27017`, and `3389`.
 
-## 🛠 Tech Stack
-**Frontend:**
-- React + TypeScript
-- TailwindCSS + custom UI components
-- Recharts for graphs
-- Sonner for toasts
+### Persistence
 
-**Backend:**
-- Flask + Flask-SocketIO
-- Nmap (port scanning)
-- psutil (bandwidth tracking)
-- Redis (optional, for metrics persistence)
+NetHawk stores settings and activity history locally under:
 
----
+```text
+nethawk-backend/.nethawk/store.json
+```
 
-## 🌟 My Customization & Speciality
-- **Guided UI Sections:** Each page includes a readable “How it works” section so even beginners understand the feature.
-- **Real-time workflows:** Most actions update instantly instead of waiting for a page reload.
-- **Clean visuals:** Teal/blue accent theme for a professional yet modern look.
-- **Scalable design:** Structured so new utilities can be added quickly.
+Redis support remains available if configured, but local JSON works by default.
 
----
+## Tech Stack
 
-## 🚀 How It Stands Out
-- **Not just a demo:** Built to look and feel production-ready.
-- **Multi-tool in one place:** Less friction compared to using separate apps.
-- **User education built-in:** The UI explains *why* and *how* results are calculated.
-- **Designed for growth:** Roadmap-ready for cloud deployment and global use.
+Core/local tooling:
 
----
+- Python
+- psutil
+- Textual
+- Rich
+- Nmap
+- local JSON persistence
 
-## 🧪 Local Setup
+Optional localhost web dashboard:
 
-### Backend
+- Flask
+- Flask-SocketIO
+- React
+- TypeScript
+- TailwindCSS
+- Recharts
+
+## Architecture
+
+```text
+NetHawk
+|
+|-- nethawk-backend/
+|   |-- core/
+|   |   |-- latency.py            # TCP latency helper
+|   |   |-- diagnosis_engine.py   # rule-based Network Doctor
+|   |   |-- port_scan.py          # local Nmap scan helper
+|   |
+|   |-- nethawk_tui/
+|   |   |-- app.py                # Textual app shell
+|   |   |-- screens.py            # Rich renderers
+|   |   |-- widgets.py            # local data adapters
+|   |   |-- theme.tcss            # TUI theme/layout
+|   |
+|   |-- routes/                   # optional Flask API routes
+|   |-- metrics_store.py          # local JSON/Redis-backed store
+|   |-- app.py                    # optional Flask + Socket.IO backend
+|
+|-- frontend/
+|   |-- React + TypeScript dashboard for localhost visualization
+```
+
+The TUI path avoids importing Flask app startup, Socket.IO, or Eventlet. It uses reusable local modules directly.
+
+## Run The TUI
+
 ```bash
 cd nethawk-backend
-python -m venv .venv
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python -m nethawk_tui
+```
+
+Nmap is required for full port scanning:
+
+```bash
+nmap --version
+```
+
+If Nmap is missing, the TUI shows a clean scan error instead of crashing.
+
+## Demo Workflow
+
+```bash
+cd nethawk-backend
+source .venv/bin/activate
+python -m nethawk_tui
+```
+
+Suggested demo flow:
+
+1. Open Dashboard with `d` and show live CPU/memory/network/latency.
+2. Open Doctor with `o` and explain rule-based diagnosis cards.
+3. Open Port Scan with `s`, scan `127.0.0.1` on `22,80,443`, and explain risk labels.
+4. Open Bandwidth with `b` and show current/peak upload and download.
+5. Open Settings with `g`, update latency target or thresholds, then save.
+6. Open History with `h` and show persisted scan/settings events.
+
+## Optional Localhost Web Dashboard
+
+The existing web dashboard is still available as an optional visual interface.
+
+Backend:
+
+```bash
+cd nethawk-backend
 source .venv/bin/activate
 pip install -r requirements.txt
 python app.py
 ```
 
-### Frontend
+Frontend:
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
----
+Use this as a localhost dashboard. It should not be presented as a cloud-hosted tool for monitoring visitors' machines.
 
-## ✅ Usage Tips
-- Run backend first so the frontend receives realtime data.
-- Use the **Settings** page to tune scanner timeouts or retries.
-- Watch the bell icon for realtime updates and activity hints.
+## Verification
 
----
+From `nethawk-backend`:
 
-## 🧭 Roadmap
-- ✅ Real-time bandwidth history + interface usage
-- ✅ Live notification system
-- ✅ Settings persistence
-- 🔜 More advanced FTP operations
-- 🔜 External deployment with public dashboards
-- 🔜 Authentication (optional)
-- 🔜 Advanced analytics with custom alerts
+```bash
+source .venv/bin/activate
+python -m compileall core nethawk_tui routes scripts app.py metrics_store.py
+python scripts/verify_foundation.py
+python scripts/verify_diagnosis.py
+python scripts/verify_tui_phase3b.py
+```
 
----
+## Known Limitations
 
-## 📜 License
-MIT (or update as needed).
+- Nmap must be installed locally for full port scanning.
+- TCP latency is not ICMP ping. It is used because it is permission-safe and works without raw socket privileges.
+- The TUI monitors the local machine where it runs, not remote users.
+- The web dashboard is intended for localhost visualization, not cloud monitoring of users' machines.
+- The Network Doctor is deterministic and rule-based, not ML.
+- Scan progress is currently status-based, not per-port streaming progress.
+- FTP/mail modules from the earlier dashboard still exist, but they are not the focus of the local-first TUI.
 
----
+## Interview Explanation
 
-Built with focus, clarity, and real-world learning. ✨
+### Problem
+
+Most small network utility projects either show raw terminal output or build a web dashboard that looks good but does not truly monitor the user's local machine once deployed.
+
+### Why Web-Only Was Not Enough
+
+The first version was a React + Flask dashboard. That was visually useful, but a deployed backend only observes the server it runs on. For local diagnostics, the tool needs direct access to local system counters, local network interfaces, and local Nmap scans.
+
+### Local-First Redesign
+
+NetHawk was redesigned around a terminal-first TUI. The TUI runs locally, imports reusable Python core modules directly, and keeps the web dashboard as an optional localhost view.
+
+### How It Works
+
+`psutil` collects system and bandwidth metrics. A TCP latency helper measures network responsiveness without raw ICMP privileges. Nmap performs local port scans. The Network Doctor applies readable rules to metrics, latency, activity history, and scan results. Settings and audit history are persisted locally.
+
+### Trade-Offs
+
+TCP latency is safer than ICMP but not identical to ping. Nmap gives useful scan detail but must be installed. A rule-based doctor is explainable and deterministic, but it is not adaptive like ML.
+
+### Future Improvements
+
+- Streaming scan progress in the TUI.
+- Export scan results to JSON/CSV.
+- Better process-level network attribution.
+- Packaged CLI commands such as `nethawk tui`, `nethawk scan`, and `nethawk doctor`.
+- More configurable diagnosis thresholds.
+
+## Resume Bullets
+
+- Built NetHawk, a terminal-first local diagnostics suite using Python, Textual, Rich, psutil, Nmap, and a Flask/Socket.IO optional backend, with 1.25s TUI auto-refresh, 7 diagnostic screens, TCP latency checks, local port scanning, and persistent JSON-backed audit history.
+- Redesigned the project from a deployed web dashboard into a local-first network utility, adding a rule-based Network Doctor with 8+ explainable rules and 10+ common port risk labels to turn raw telemetry into actionable troubleshooting guidance.

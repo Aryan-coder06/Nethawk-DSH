@@ -13,7 +13,9 @@ DEFAULT_SETTINGS = {
     },
     "network": {
         "default_interface": "eth0",
-        "default_range": "192.168.1.0/24"
+        "default_range": "192.168.1.0/24",
+        "latency_target": "8.8.8.8",
+        "latency_port": 53
     },
     "appearance": {
         "theme": "dark",
@@ -32,7 +34,8 @@ DEFAULT_SETTINGS = {
         "cpu": 80,
         "memory": 85,
         "bandwidth": 100,
-        "disk": 90
+        "disk": 90,
+        "latency": 250
     },
     "security": {
         "two_factor": False,
@@ -70,5 +73,11 @@ def save_settings():
         if isinstance(values, dict):
             merged.setdefault(section, {})
             merged[section].update(values)
-    metrics_store.set_settings(merged)
-    return jsonify({"success": True, "settings": merged})
+    saved = metrics_store.set_settings(merged)
+    metrics_store.add_activity(
+        "settings",
+        "Settings updated",
+        "success",
+        sections=list(payload.keys()),
+    )
+    return jsonify({"success": True, "settings": saved})

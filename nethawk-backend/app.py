@@ -25,6 +25,7 @@ import datetime
 
 from routes.port_scanner import run_port_scan, ip_add_pattern, parse_ports_string
 
+from core.latency import latency_settings, measure_latency
 from metrics_store import metrics_store
 
 from routes.ftp import ftp_bp
@@ -69,12 +70,10 @@ def bandwidth_monitor_task():
                 upload_mbps = round((sent_bps * 8) / (1024 * 1024), 2)
                 download_mbps = round((recv_bps * 8) / (1024 * 1024), 2)
 
-                ping_ms = 0.0
-                try:
-                    ping_ms = round(psutil.cpu_times_percent(interval=0.1).user, 2)
-                except Exception as ping_e:
-                    logger.warning(f"Error calculating 'ping' (CPU usage): {ping_e}")
-                    ping_ms = -1
+                settings = metrics_store.get_settings()
+                target, port = latency_settings(settings)
+                latency = measure_latency(target=target, port=port, timeout=0.75)
+                ping_ms = latency["latency_ms"] if latency["latency_ms"] is not None else -1
 
                 _last, _last_t = cur, now
 
@@ -85,7 +84,8 @@ def bandwidth_monitor_task():
                     "ts": int(now),
                     "upload": upload_mbps,
                     "download": download_mbps,
-                    "ping": ping_ms
+                    "ping": ping_ms,
+                    "latency": latency
                 }
 
                 socketio.emit('bandwidth_update', bandwidth_data)
@@ -169,6 +169,7 @@ def port_scan_task_wrapper(host, ports_str, sid):
     global scan_stop_event
 
     with app.app_context():
+        open_ports = []
         try:
             logger.info(f"Port scan task started for {host}:{ports_str} (SID: {sid})") 
             for update in run_port_scan(host, ports_str, scan_stop_event):
@@ -176,11 +177,38 @@ def port_scan_task_wrapper(host, ports_str, sid):
                     logger.info(f"Scan for {host} (SID: {sid}) signaled to stop by event. Exiting wrapper loop.") 
                     break
 
+                if update.get("status") == "open_port":
+                    open_ports.append(update.get("port"))
+                elif update.get("status") == "complete":
+                    metrics_store.add_activity(
+                        "scan",
+                        f"Port scan completed for {host}: {len(open_ports)} open port(s)",
+                        "success",
+                        host=host,
+                        ports=ports_str,
+                        open_ports=open_ports,
+                    )
+                elif update.get("status") == "error":
+                    metrics_store.add_activity(
+                        "scan",
+                        f"Port scan failed for {host}: {update.get('message', 'unknown error')}",
+                        "error",
+                        host=host,
+                        ports=ports_str,
+                    )
+
                 socketio.emit('scan_update', update, room=sid)
                 socketio.sleep(0.01)
 
         except Exception as e:
             logger.error(f"Error in port scan task for SID {sid}: {e}", exc_info=True) 
+            metrics_store.add_activity(
+                "scan",
+                f"Port scan failed for {host}: {str(e)}",
+                "error",
+                host=host,
+                ports=ports_str,
+            )
             socketio.emit('scan_update', {'status': 'error', 'message': f"An internal server error occurred during scan: {str(e)}"}, room=sid)
         finally:
             logger.info(f"Port scan task for SID {sid} finished/stopped. Clearing stop event.") 
@@ -197,10 +225,12 @@ def handle_start_port_scan(data):
     ports_str = data.get('ports')
 
     if not host or not ports_str:
+        metrics_store.add_activity("scan", "Port scan rejected: missing host or ports", "error")
         emit('scan_update', {'status': 'error', 'message': 'Host and ports are required.'}, room=request.sid)
         return
 
     if not ip_add_pattern.search(host):
+        metrics_store.add_activity("scan", f"Port scan rejected: invalid host {host}", "error", host=host)
         emit('scan_update', {'status': 'error', 'message': 'Invalid IP address format.'}, room=request.sid)
         return
 
@@ -218,6 +248,13 @@ def handle_start_port_scan(data):
         scan_stop_event.clear()
 
     logger.info(f"Received new scan request from SID {request.sid} for {host} on ports: {ports_str}") 
+    metrics_store.add_activity(
+        "scan",
+        f"Port scan started for {host} on {ports_str}",
+        "info",
+        host=host,
+        ports=ports_str,
+    )
 
     scan_thread = Thread(target=port_scan_task_wrapper, args=(host, ports_str, request.sid))
     scan_thread.start()
@@ -441,6 +478,8 @@ def create_app():
         from routes.bandwidth_api import bandwidth_api_bp
         from routes.settings import settings_bp
         from routes.notifications import notifications_bp
+        from routes.health import health_bp
+        from routes.doctor import doctor_bp
 
         app.register_blueprint(ov_bp, url_prefix="/api/overview")
         app.register_blueprint(ftp_bp, url_prefix="/ftp")
@@ -448,9 +487,12 @@ def create_app():
         app.register_blueprint(bandwidth_api_bp, url_prefix="/api/bandwidth")
         app.register_blueprint(settings_bp, url_prefix="/api/settings")
         app.register_blueprint(notifications_bp, url_prefix="/api/notifications")
+        app.register_blueprint(health_bp, url_prefix="/api")
+        app.register_blueprint(doctor_bp, url_prefix="/api")
         logger.info("Blueprints registered successfully.")
 
         register_mail_socket_events(socketio)
+        metrics_store.add_activity("system", "NetHawk backend started", "success")
 
     except ImportError as e:
         logger.error(f"Warning: Could not import one or more blueprints: {e}. API routes might not be available.")
@@ -459,3 +501,7 @@ def create_app():
 
 app = create_app()
 
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", "5000"))
+    socketio.run(app, host="0.0.0.0", port=port, debug=True)

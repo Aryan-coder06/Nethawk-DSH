@@ -1,0 +1,2 @@
+"""Terminal UI for NetHawk."""
+

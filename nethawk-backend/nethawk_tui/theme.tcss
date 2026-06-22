@@ -42,11 +42,18 @@ Screen {
 }
 
 .form Input {
-    margin: 0 1 1 0;
+    width: 100%;
+    margin: 0 0 1 0;
 }
 
 .form Button {
     margin: 0 1 1 0;
+}
+
+.field_label {
+    height: 1;
+    color: #67e8f9;
+    margin: 0 0 0 0;
 }
 
 #topbar {

@@ -186,7 +186,10 @@ def render_scan(scan_state: dict):
 
     rows = scan_state.get("results") or []
     if not rows:
-        results.add_row("-", "-", "-", "No scan results yet", "-")
+        empty_message = "No scan results yet"
+        if status == "completed":
+            empty_message = "Scan completed, but nmap returned no port rows"
+        results.add_row("-", "-", "-", empty_message, "-")
     else:
         for row in rows:
             risk = str(row.get("risk", "info"))
@@ -201,7 +204,7 @@ def render_scan(scan_state: dict):
     return Group(
         Panel(summary, title="Port Scan", border_style=status_color(status), box=box.ROUNDED),
         results,
-        Panel("Use fields below. Press Start Scan or hit Enter in the ports field.", border_style="dim", box=box.ROUNDED),
+        Panel("Type in the bottom fields. Use Tab to move fields. Press Enter or Start Scan to run.", border_style="dim", box=box.ROUNDED),
     )
 
 

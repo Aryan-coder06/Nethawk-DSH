@@ -72,8 +72,10 @@ class NetHawkTUI(App):
                 yield Static(id="sidebar")
                 with Vertical(id="main_area"):
                     yield Static(id="content")
-                    with Horizontal(id="scan_form", classes="form"):
+                    with Vertical(id="scan_form", classes="form"):
+                        yield Static("Target host/IP", classes="field_label")
                         yield Input(value="127.0.0.1", placeholder="Target host/IP", id="scan_target")
+                        yield Static("Ports or range", classes="field_label")
                         yield Input(value="22,80,443", placeholder="Ports e.g. 22,80,443 or 1-100", id="scan_ports")
                         yield Button("Start Scan", id="scan_start", variant="primary")
                     with Horizontal(id="settings_form", classes="form"):
@@ -294,6 +296,24 @@ class NetHawkTUI(App):
             self.start_scan()
         elif event.input.id and event.input.id.startswith("set_"):
             self.save_settings()
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id not in {"scan_target", "scan_ports"} or self.active_screen != "scan":
+            return
+
+        target = self.query_one("#scan_target", Input).value.strip()
+        ports = self.query_one("#scan_ports", Input).value.strip()
+        if self.scan_state.get("status") != "running":
+            self.scan_state.update({
+                "status": "idle",
+                "target": target,
+                "ports": ports,
+                "message": "Editing scan inputs. Press Enter in a field or Start Scan.",
+                "results": [],
+            })
+            self.query_one("#content", Static).update(render_scan(self.scan_state))
+            self.last_message = "Editing scan inputs"
+            self.refresh_chrome()
 
     def start_scan(self) -> None:
         if self.scan_running:

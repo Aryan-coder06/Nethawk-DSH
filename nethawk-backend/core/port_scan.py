@@ -45,6 +45,19 @@ def parse_ports(ports_input: str) -> str:
     return ",".join(sorted(set(ports), key=lambda value: int(value.split("-", 1)[0])))
 
 
+def count_ports(ports: str) -> int:
+    total = 0
+    for part in (ports or "").split(","):
+        if not part:
+            continue
+        if "-" in part:
+            start, end = [int(value) for value in part.split("-", 1)]
+            total += end - start + 1
+        else:
+            total += 1
+    return total
+
+
 def risk_for_port(port: int, service: str = "") -> str:
     if port in COMMON_PORT_RISKS:
         return COMMON_PORT_RISKS[port][1]
@@ -78,6 +91,19 @@ def _parse_nmap_xml(xml_text: str, target: str) -> list[dict[str, Any]]:
             "risk": risk_for_port(port, service),
             "target": target,
         })
+    if not rows:
+        for extraports in root.findall(".//extraports"):
+            state = extraports.attrib.get("state", "unknown")
+            count = int(extraports.attrib.get("count", "0"))
+            if count:
+                rows.append({
+                    "port": f"{count} ports",
+                    "protocol": "TCP",
+                    "state": state,
+                    "service": "nmap summary",
+                    "risk": "info",
+                    "target": target,
+                })
     return sorted(rows, key=lambda row: row["port"])
 
 
@@ -140,12 +166,18 @@ def run_local_port_scan(target: str, ports_input: str, timeout: int = 45) -> dic
         }
 
     open_ports = [row["port"] for row in results if row["state"] == "open"]
+    scanned_count = count_ports(ports)
+    message = f"Scan completed: {len(open_ports)} open port(s)."
+    if not results:
+        message = f"Scan completed: no per-port rows returned for {scanned_count} scanned port(s)."
+
     return {
         "status": "completed",
-        "message": f"Scan completed: {len(open_ports)} open port(s).",
+        "message": message,
         "results": results,
         "target": target,
         "ports": ports,
         "open_ports": open_ports,
+        "scanned_count": scanned_count,
         "duration_seconds": round(time.time() - started, 2),
     }
